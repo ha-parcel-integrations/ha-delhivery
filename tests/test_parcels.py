@@ -2,8 +2,8 @@
 
 These need no Home Assistant instance — the whole point of keeping
 ``parcels.py`` free of I/O is that the carrier-specific mapping can be tested
-as plain functions. Field *names* are first-party (2026-08-09 consignee-app
-teardown), but no populated Delhivery ``data[]`` entry has ever been observed
+as plain functions. Field *names* are first-party (as of a 2026-08-09
+correction), but no populated Delhivery ``data[]`` entry has ever been observed
 on the wire (see the module docstring in ``parcels.py``), so every payload
 used here is **synthetic, not captured** — see ``tests/payloads.py``'s module
 docstring.

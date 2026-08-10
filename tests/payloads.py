@@ -4,8 +4,8 @@
 the endpoint (`carrier-research/api/delhivery/tracking.md`) — the only real
 request/response pair on file is the not-found envelope on a bogus AWB
 (`NOT_FOUND_ENVELOPE` below, which *is* a verbatim capture). Everything else
-in this module uses the first-party field *names* the 2026-08-09 consignee-app
-teardown confirmed (`hqStatus`, `trackingStates[].{label,stepStatus,scans}`,
+in this module uses the first-party field *names* a 2026-08-09 correction
+confirmed (`hqStatus`, `trackingStates[].{label,stepStatus,scans}`,
 `scans[].{scanDateTime,scanNslRemark,cityLocation}`, `PromiseDeliveryDate`,
 `clientName`, `consignee`), but the values, nesting and optionality below are
 still invented for test coverage only — it proves the code does not crash and

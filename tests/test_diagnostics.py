@@ -39,7 +39,7 @@ async def test_diagnostics_redacts_and_counts(hass):
 
 
 async def test_diagnostics_redacts_first_party_delhivery_fields(hass):
-    """The 2026-08-09 teardown's first-party field names — grounded but
+    """The 2026-08-09 correction's first-party field names — grounded but
     still pre-capture — must be redacted too, including the nested blocks
     the Dynalogic lesson warns are the usual miss."""
     entry = MagicMock()

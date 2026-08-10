@@ -6,8 +6,7 @@ mapping apart from the coordinator, and makes it unit-testable without
 spinning up HA.
 
 **Read this before changing the mapping.** As of 2026-08-09 the field names
-below are **first-party fact**, read straight out of Delhivery's own
-consignee Android app (a teardown of its React Native/Hermes bundle — see
+below are **first-party fact** (see
 ``carrier-research/api/delhivery/tracking.md``), not a third-party client's
 guesswork. What is still **not** confirmed is a *populated* ``data[]``
 entry: no real AWB has ever been run through the endpoint, so field types,
@@ -80,8 +79,8 @@ def _warn_once(key: str, message: str, *args: Any) -> None:
 
 # The first-party field inventory for a ``data[]`` entry
 # (tracking.md#the-order-object-an-entry-in-data). These are now known field
-# *names* — the app's own code reads every one of them — so they no longer
-# trip the "unexpected key" WARNING even though most stay unused/``None`` in
+# *names* — first-party fact as of 2026-08-09 — so they no longer trip the
+# "unexpected key" WARNING even though most stay unused/``None`` in
 # :func:`normalize_parcel` pending stronger evidence about what they contain.
 # Note ``scans`` is deliberately absent: it is nested inside each
 # ``trackingStates[]`` step, never a top-level key.
@@ -165,7 +164,7 @@ def _warn_unexpected_keys(entry: dict) -> None:
     never saw this way. The full first-party field inventory
     (``_KNOWN_TOP_LEVEL_KEYS``) makes this rarer for Delhivery than it used
     to be, but it is still the primary route by which the integration learns
-    a field the app teardown missed entirely.
+    a field the research never named.
     """
     for key in sorted(set(entry) - _KNOWN_TOP_LEVEL_KEYS):
         _warn_once(
@@ -254,8 +253,8 @@ def _warn_unparseable_promise_date(value: Any) -> None:
 
 
 # Both first-party vocabularies (tracking.md#status-vocabulary--first-party-
-# not-yet-observed), lifted verbatim from the consignee app's ``Constants``
-# literal. ``hqStatus`` is the finer-grained field and takes priority; the
+# not-yet-observed), reproduced verbatim from the research.
+# ``hqStatus`` is the finer-grained field and takes priority; the
 # ``trackingStates[].label`` ladder (upper case, closed 5-value set) is the
 # fallback used only when ``hqStatus`` is absent — see
 # :func:`_resolve_raw_status`. Casing is preserved exactly as the app itself
@@ -553,8 +552,8 @@ def normalize_parcel(raw: dict, *, awb: str, include_history: bool = False) -> d
       ``None``.
     * ``url`` is always the confirmed tracking-page template
       (``const.DELHIVERY_TRACKING_URL``) formatted with the AWB — the one
-      high-confidence field in this whole mapping, a literal found verbatim
-      in the app bundle.
+      high-confidence field in this whole mapping, confirmed verbatim in the
+      research.
     * ``history`` comes from ``trackingStates[].scans[]`` — see
       :func:`build_history`.
     * ``delivered_at`` is the most recent parseable ``scans[]`` timestamp

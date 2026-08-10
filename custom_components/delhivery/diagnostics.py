@@ -13,7 +13,7 @@ from .const import DIAGNOSTICS_REDACT_KEYS
 # identifies a person, an address or a specific parcel. Over-redacting is
 # cheap; under-redacting leaks a user's home address into a GitHub thread.
 #
-# Field names are first-party (read out of the consignee app's own code —
+# Field names are first-party (see
 # tracking.md#diagnostics-redaction--revised-still-pre-capture), but no
 # populated data[] entry has ever been captured, so this is still
 # grounded-but-unverified, not a walked real payload. Shared with

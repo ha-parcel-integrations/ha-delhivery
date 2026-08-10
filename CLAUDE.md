@@ -41,12 +41,10 @@ mapping. Do not duplicate them here.
 
 ### ⚠️ Read this before touching `parcels.py` — names are first-party, values are not
 
-A 2026-08-09 teardown of Delhivery's own consignee Android app (React
-Native/Hermes; a genuine Play-distributed artifact — a competing re-signed
-Uptodown APK was rejected as a source) moved the payload's **field names**
-and **status vocabularies** from third-party guesswork to first-party fact:
-they come straight out of the app's own `Constants` object and Redux
-thunks. What is **still** true: no real AWB has ever been run through the
+A 2026-08-09 correction (see `carrier-research/api/delhivery/`, private)
+moved the payload's **field names** and **status vocabularies** from
+third-party guesswork to first-party fact. What is **still** true: no real
+AWB has ever been run through the
 endpoint, so no *populated* `data[]` entry has ever actually been seen —
 types, nesting and optionality of every field remain inference, and neither
 status vocabulary (`hqStatus` nor the `trackingStates[].label` ladder) has
@@ -87,8 +85,8 @@ the suite norm on anything about *shape*:
   `receiver` ← `consignee` (first-party, `.get()`-guarded reads only, no
   further validation since types/optionality are unconfirmed), `url` ←
   `const.DELHIVERY_TRACKING_URL.format(awb=...)`, a literal template
-  confirmed verbatim in the app bundle — always populated, the one
-  high-confidence field in this whole mapping.
+  confirmed verbatim — always populated, the one high-confidence field in
+  this whole mapping.
 - **`delivered_at` comes from the last parseable `scans[]` timestamp**
   (`_last_scan_timestamp`), resolved once `status` maps to `delivered` —
   **independent of the `include_history` opt-in**, since the delivered-list
@@ -110,7 +108,7 @@ the suite norm on anything about *shape*:
   quiet any of them without replacing the guess they guard with a real
   answer.**
 - **`DIAGNOSTICS_REDACT_KEYS` in `const.py` is grounded but still
-  pre-capture** — the 2026-08-09 teardown named real fields
+  pre-capture** — the 2026-08-09 correction named real fields
   (`addressDetails`, `orderDetails`, `fePhoneObj`, `ucid_consignor`/
   `ucid_consignee`, `referenceNo`, `cityLocation` nested inside each scan,
   `price_detail`, `orderAmount`, `paymentTerms`, `clientName`), but none of

@@ -33,8 +33,8 @@ PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 # control-tested 2026-08-06 and re-probed 2026-08-09: a bogus AWB answers
 # HTTP 200 with a clean ``{"data": []}`` envelope; a *populated* ``data[]``
 # entry has never been observed. Since 2026-08-09 the field names below are
-# first-party (read out of Delhivery's own consignee app), but their types
-# and nesting are still inference — ``payload: reconstructed`` stays until a
+# first-party fact, but their types and nesting are still inference —
+# ``payload: reconstructed`` stays until a
 # real AWB is captured.
 TRACKING_API_URL = (
     "https://dlv-api.delhivery.com/v3/unified-tracking-new?wbn={tracking_code}"
@@ -51,7 +51,7 @@ DELHIVERY_ORIGIN = "https://www.delhivery.com"
 DELHIVERY_REFERER = "https://www.delhivery.com/"
 
 # Consumer tracking-page deep-link, confirmed verbatim (an interpolation
-# template) in the consignee app's Hermes bundle — see
+# template) in the research — see
 # tracking.md#payload--first-party-field-names-still-not-seen-on-the-wire.
 # High confidence (unlike almost everything else in this module): unlike a
 # payload field, a hardcoded URL template can't have the wrong shape.
@@ -60,7 +60,7 @@ DELHIVERY_REFERER = "https://www.delhivery.com/"
 DELHIVERY_TRACKING_URL = "https://www.delhivery.com/track-v2/package/{awb}"
 
 # Diagnostics / first-payload-log redaction. Field **names** are first-party
-# now (read out of the consignee app's own Constants/screens — see
+# now (see
 # tracking.md#diagnostics-redaction--revised-still-pre-capture), but no
 # populated ``data[]`` entry has ever been captured, so this is still
 # grounded-but-unverified: types, nesting and whether a name really shows up
@@ -84,7 +84,7 @@ DIAGNOSTICS_REDACT_KEYS = {
     # everything but the per-item "tracking_code" leaf is the actual PII.
     "tracking_code",
     # first-party Delhivery field names (tracking.md "The order object" /
-    # "Diagnostics redaction") — grounded in the app's own code, still never
+    # "Diagnostics redaction") — grounded in the research, still never
     # checked against a real body
     "consignee",
     "clientName",
