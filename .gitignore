@@ -39,5 +39,3 @@ ENV/
 
 # Claude Code (local)
 .claude/
-
-# Working notes — never published (matches ha-oesterreichische-post's convention)
