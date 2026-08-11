@@ -28,6 +28,21 @@ class ParcelStatus(StrEnum):
 
 PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 
+# Every optional key the parcel contract defines. CAPABILITIES below must be a
+# subset of this — it exists so a typo in CAPABILITIES fails a test instead of
+# silently dropping this carrier off a table on the docs site.
+KNOWN_CAPABILITIES = frozenset(
+    {"weight", "dimensions", "delivery_window", "pickup_point", "url", "history"}
+)
+
+# Which optional contract fields this carrier's API actually populates — feeds
+# the comparison table on the docs site. Keep in lockstep with
+# normalize_parcel() in parcels.py: everything not listed here comes back as a
+# literal None there. Delhivery has never had a populated payload observed on
+# the wire, so weight/dimensions/pickup_point stay unmapped, but a confirmed
+# ``PromiseDeliveryDate``, tracking URL template, and scan-based history exist.
+CAPABILITIES = frozenset({"delivery_window", "url", "history"})
+
 # Keyless GET, keyed on the AWB (``wbn``) alone — see
 # carrier-research/api/delhivery/tracking.md#endpoint--auth. Live
 # control-tested 2026-08-06 and re-probed 2026-08-09: a bogus AWB answers

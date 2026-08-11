@@ -122,7 +122,9 @@ the suite norm on anything about *shape*:
   research explicitly flags `weight` (`package_weight`) as low-confidence —
   the app buckets it to an icon, so it may not be a numeric kg value — and
   found nothing for the other three. Do not fill these in without new
-  evidence in `carrier-research/api/delhivery/`.
+  evidence in `carrier-research/api/delhivery/`. Reflected in `const.py`'s
+  `CAPABILITIES` (feeds the docs site's comparison table) — keep the two in
+  agreement if that ever changes.
 - **`ref_id` (a documented alternate lookup key, merchant reference instead
   of AWB) is deliberately not implemented.** It changes the config-flow's
   tracking-code semantics (one field meaning two different things), which is
