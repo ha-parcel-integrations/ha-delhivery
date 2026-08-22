@@ -34,14 +34,14 @@ you act in one of these areas:
 
 ## Carrier-specific notes
 
-**API mechanics live in `carrier-research/api/delhivery/` (private research
+**API mechanics live in `carrier-research/delhivery/api/` (private research
 repo)** — the endpoint, the fixed Origin/Referer headers, the not-found
 envelope, the first-party payload field names, and the payload→canonical
 mapping. Do not duplicate them here.
 
 ### ⚠️ Read this before touching `parcels.py` — names are first-party, values are not
 
-A 2026-08-09 correction (see `carrier-research/api/delhivery/`, private)
+A 2026-08-09 correction (see `carrier-research/delhivery/api/`, private)
 moved the payload's **field names** and **status vocabularies** from
 third-party guesswork to first-party fact. What is **still** true: no real
 AWB has ever been run through the
@@ -122,7 +122,7 @@ the suite norm on anything about *shape*:
   research explicitly flags `weight` (`package_weight`) as low-confidence —
   the app buckets it to an icon, so it may not be a numeric kg value — and
   found nothing for the other three. Do not fill these in without new
-  evidence in `carrier-research/api/delhivery/`. Reflected in `const.py`'s
+  evidence in `carrier-research/delhivery/api/`. Reflected in `const.py`'s
   `CAPABILITIES` (feeds the docs site's comparison table) — keep the two in
   agreement if that ever changes.
 - **`ref_id` (a documented alternate lookup key, merchant reference instead
@@ -192,5 +192,5 @@ python -m pytest tests/ --cov=custom_components.delhivery
 
 Coverage must stay **above 95%** (silver `test-coverage` rule). Run before
 committing. A code change updates the README + this file + `docs/` in the same
-commit; the API reference lives in this carrier's directory under the private
-`carrier-research/api/`, never in this repo.
+commit; the API reference lives in `carrier-research/delhivery/api/` (this
+carrier's own directory in the private research repo), never in this repo.
