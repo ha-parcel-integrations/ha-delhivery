@@ -118,6 +118,19 @@ _KNOWN_TOP_LEVEL_KEYS = {
     "dispatchId",
     "ucid_consignor",
     "ucid_consignee",
+    # confirmed by the first real populated data[] entry ever captured
+    # (2026-08-24, a LOST parcel) — real field names, still mostly unused
+    # pending stronger evidence about what a *different* status looks like
+    "currentFlow",
+    "currentTrackIndex",
+    "deliveryDate_v1",
+    "deliveryPillLabel",
+    "essential",
+    "isDirectPTL",
+    "isMaster",
+    "productType",
+    "subText",
+    "timelineModifications",
 }
 
 # How deep the structure report walks. Comfortably past anything the known
@@ -291,7 +304,17 @@ _STATUS_MAP: dict[str, ParcelStatus] = {
 # unmapped value" warning below, which stays for anything outside this set.
 # Remove entries here one at a time as real captures confirm them — do not
 # clear it wholesale.
-_UNCERTAIN_STATUSES = frozenset(_STATUS_MAP)
+#
+# hqStatus "LOST" confirmed 2026-08-24: the first real capture (three
+# distinct parcels) showed hqStatus == "LOST" alongside self-describing,
+# mutually-agreeing fields the app itself displays to the user —
+# deliveryPillLabel "Lost", subText "we're unable to locate your package",
+# status.instructions "Shipment LOST", scans[].scanNslRemark "Package marked
+# as lost". That is wire confirmation of both the value and the "problem"
+# mapping, not just the field name. The trackingStates[].label ladder value
+# seen alongside it ("Lost", title case) is *not* the same key as the
+# ladder's own "CANCELLED" et al. and stays unconfirmed/unmapped.
+_UNCERTAIN_STATUSES = frozenset(_STATUS_MAP) - {"LOST"}
 
 
 def _warn_uncertain_status(raw_status: str) -> None:

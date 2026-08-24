@@ -1,17 +1,20 @@
 """Sample Delhivery API payloads shared by the test modules.
 
-**Synthetic, not captured.** No real Delhivery AWB has ever been run through
-the endpoint (`carrier-research/api/delhivery/tracking.md`) — the only real
-request/response pair on file is the not-found envelope on a bogus AWB
-(`NOT_FOUND_ENVELOPE` below, which *is* a verbatim capture). Everything else
-in this module uses the first-party field *names* a 2026-08-09 correction
-confirmed (`hqStatus`, `trackingStates[].{label,stepStatus,scans}`,
+**Mostly synthetic.** No real Delhivery AWB was run through the endpoint
+(`carrier-research/api/delhivery/tracking.md`) until 2026-08-24, when three
+real "LOST" parcels came through a live poll — `LOST_CAPTURE_ENTRY` below is
+that capture, verbatim except for `awb`/`referenceNo`/the nested
+`cityLocation` (redacted at source per `const.DIAGNOSTICS_REDACT_KEYS`,
+replaced here with obvious placeholders, never fabricated as if real).
+`NOT_FOUND_ENVELOPE` is the other verbatim capture on file — the not-found
+envelope on a bogus AWB. Everything else in this module uses the first-party
+field *names* a 2026-08-09 correction confirmed (`hqStatus`,
+`trackingStates[].{label,stepStatus,scans}`,
 `scans[].{scanDateTime,scanNslRemark,cityLocation}`, `PromiseDeliveryDate`,
-`clientName`, `consignee`), but the values, nesting and optionality below are
-still invented for test coverage only — it proves the code does not crash and
-degrades gracefully on *a* plausible shape, not that this is *the* real shape.
-Replace with a real (redacted) response the moment one is captured (see
-TODO.md).
+`clientName`, `consignee`), but the values, nesting and optionality are still
+invented for test coverage only — it proves the code does not crash and
+degrades gracefully on *a* plausible shape for statuses other than LOST, not
+that it is *the* real shape.
 """
 from __future__ import annotations
 
@@ -25,6 +28,66 @@ NOT_FOUND_ENVELOPE = {
     "statusCode": 200,
     "message": "invalid AWB or very old package",
     "data": [],
+}
+
+
+LOST_CAPTURE_CODE = "39777010000022"
+
+# Verbatim first real data[] entry (2026-08-24), redacted per
+# const.DIAGNOSTICS_REDACT_KEYS the same way diagnostics.py and parcels.py's
+# first-payload WARNING redact it. Notable, and deliberately *not* patched
+# around here: every scanDateTime in the capture — both the step-level one
+# and the one inside scans[] — is an empty string, so this entry produces no
+# parseable history/timestamp at all via the current
+# trackingStates[].scans[].scanDateTime path, even though a real timestamp
+# does exist at the (currently unmapped) top-level status.statusDateTime.
+# LOST is a terminal/edge status; whether a normal in-transit or delivered
+# capture behaves the same way is still unknown.
+LOST_CAPTURE_ENTRY = {
+    "awb": "REDACTED_AWB",
+    "currentFlow": "Closed",
+    "currentTrackIndex": 0,
+    "deliveryDate": "",
+    "deliveryDate_v1": "Order Lost",
+    "deliveryPillLabel": "Lost",
+    "essential": True,
+    "hqStatus": "LOST",
+    "isDirectPTL": False,
+    "isInternational": False,
+    "isMaster": False,
+    "productType": "B2C",
+    "referenceNo": "REDACTED_REFERENCE",
+    "status": {
+        "instructions": "Shipment LOST",
+        "status": "LOST",
+        "statusDateTime": "2026-07-14T15:52:45.307000",
+    },
+    "subText": (
+        "We're sorry, we're unable to locate your package at the moment. "
+        "Please contact our support team for assistance."
+    ),
+    "timelineModifications": {},
+    "trackingStates": [
+        {
+            "date": "",
+            "label": "Lost",
+            "outOfStation": True,
+            "scanDateTime": "",
+            "scans": [
+                {
+                    "cityLocation": "REDACTED_CITY",
+                    "scan": "LOST",
+                    "scanDate": "",
+                    "scanDateTime": "",
+                    "scanNslRemark": "Package marked as lost",
+                    "scanType": "LT",
+                    "scannedLocation": "Faridabad_MathuraRoad_GW (Haryana)",
+                    "setUndeliveredNsl": False,
+                    "tsUpdateNsl": False,
+                }
+            ],
+        }
+    ],
 }
 
 

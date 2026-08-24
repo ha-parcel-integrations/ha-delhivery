@@ -8,7 +8,7 @@
 
 A custom Home Assistant integration that tracks your [Delhivery](https://www.delhivery.com) (India) parcels by AWB (waybill) number. No account is needed — you enter the tracking code yourself, just like on the Delhivery website.
 
-> **Early release (0.9.x).** This integration ships on a keyless endpoint that is live-confirmed and control-tested. Since 2026-08-09 the payload's field names and status vocabularies are first-party, but no real Delhivery AWB has ever actually been run through the endpoint, so those values are still unconfirmed on the wire. Every mapped status therefore still logs a self-reporting warning until real users' logs confirm it; see [Troubleshooting](#troubleshooting).
+> **Early release (0.9.x).** This integration ships on a keyless endpoint that is live-confirmed and control-tested. Since 2026-08-09 the payload's field names and status vocabularies are first-party; since 2026-08-24 a first real capture (a `LOST` parcel) confirmed one status on the wire, but the rest are still unconfirmed. Every other mapped status still logs a self-reporting warning until real users' logs confirm it; see [Troubleshooting](#troubleshooting).
 
 Part of the [ha-parcel-integrations](https://github.com/ha-parcel-integrations) family: it publishes the same canonical parcel format, statuses and events as the other carrier integrations, so it plugs straight into the [Parcel Aggregator](https://github.com/ha-parcel-integrations/ha-parcel-aggregator) and cross-carrier automations.
 
@@ -152,7 +152,7 @@ logger:
 
 ## Troubleshooting
 
-- **A log line says a status was "mapped to '...' — but ... this mapping is still ... not a confirmed value"** — this is expected and not an error: every one of Delhivery's known statuses is mapped, but none has ever been confirmed against a real, live response. Please [open an issue](https://github.com/ha-parcel-integrations/ha-delhivery/issues/new?template=unrecognised_status.yml) and paste the line, along with what the parcel was actually doing — that is exactly what turns "mapped but unconfirmed" into "confirmed".
+- **A log line says a status was "mapped to '...' — but ... this mapping is still ... not a confirmed value"** — this is expected and not an error: every one of Delhivery's known statuses is mapped, but (`LOST` aside, confirmed 2026-08-24) none has yet been confirmed against a real, live response. Please [open an issue](https://github.com/ha-parcel-integrations/ha-delhivery/issues/new?template=unrecognised_status.yml) and paste the line, along with what the parcel was actually doing — that is exactly what turns "mapped but unconfirmed" into "confirmed".
 - **A status logs "Unrecognised Delhivery status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-delhivery/issues/new?template=unrecognised_status.yml) with the logged line; this is exactly the report that grows the status map.
 - **A log line starts with "First real Delhivery data\[\] entry ever captured"** — please open an issue and paste it. This is the single most useful report this integration can receive: it is (redacted, per the diagnostics rules) the first real payload shape anyone has ever seen from this endpoint.
 - **A log line mentions "a shape we have never parsed"** (for `trackingStates`, `hqStatus`, or `scans`) — same as above, please share it; it tells us where the real payload diverges from the field names this integration expects so the mapping can be corrected instead of guessed.

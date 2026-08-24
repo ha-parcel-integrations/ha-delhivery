@@ -36,6 +36,8 @@ from custom_components.delhivery.parcels import (
 from .payloads import (
     ACTIVE_CODE,
     DELIVERED_CODE,
+    LOST_CAPTURE_CODE,
+    LOST_CAPTURE_ENTRY,
     active_sample,
     delivered_sample,
     ladder_fallback_sample,
@@ -57,7 +59,9 @@ def _reset_one_shot_warnings():
     parcels_module._warned.clear()
 
 # ---------------------------------------------------------------------------
-# map_parcel_status — 16 first-party-named values, all still "uncertain"
+# map_parcel_status — 16 first-party-named values; 15 still "uncertain",
+# hqStatus "LOST" confirmed by the 2026-08-24 real capture (see
+# LOST_CAPTURE_ENTRY in payloads.py)
 # ---------------------------------------------------------------------------
 
 # The two vocabularies tracking.md documents, mirrored here for the
@@ -151,14 +155,25 @@ def test_uncertain_status_warning_names_the_raw_value_and_mapping(caplog):
 def test_map_parcel_status_confirmed_entry_is_silent(monkeypatch, caplog):
     """Once a real capture confirms a value, removing it from
     `_UNCERTAIN_STATUSES` (not `_STATUS_MAP`) is what silences the
-    every-occurrence warning — proven here since none of the shipped 16 are
-    confirmed yet, so this path is otherwise never exercised."""
+    every-occurrence warning. `LOST` is the one real example of this
+    (`test_map_parcel_status_lost_is_confirmed_and_silent` below); this test
+    proves the mechanism generically via monkeypatch so it does not depend on
+    which entries happen to be confirmed."""
     monkeypatch.setattr(
         parcels_module,
         "_UNCERTAIN_STATUSES",
         frozenset(parcels_module._UNCERTAIN_STATUSES - {"Delivered"}),
     )
     assert map_parcel_status("Delivered") == ParcelStatus.DELIVERED
+    assert caplog.text == ""
+
+
+def test_map_parcel_status_lost_is_confirmed_and_silent(caplog):
+    """The 2026-08-24 real capture confirmed hqStatus "LOST" on the wire, so
+    it is the one entry already removed from `_UNCERTAIN_STATUSES` for real —
+    mapped, but no "mapping is still unconfirmed" warning."""
+    assert map_parcel_status("LOST") == ParcelStatus.PROBLEM
+    assert "unconfirmed" not in caplog.text
     assert caplog.text == ""
 
 
@@ -743,6 +758,25 @@ def test_normalize_logs_first_populated_payload_once_ever(caplog):
 def test_normalize_pending_placeholder_never_triggers_first_payload_log(caplog):
     normalize_parcel({}, awb="1")
     assert "First real Delhivery data[] entry ever captured" not in caplog.text
+
+
+def test_normalize_lost_capture_end_to_end(caplog):
+    """The one real (partially redacted) data[] entry on file. Confirms:
+    status resolves to `problem` with no "unconfirmed" warning (LOST is
+    confirmed), none of the ten fields this capture taught us trip the
+    unexpected-key warning, and — the capture's own surprise — every
+    scanDateTime in it is an empty string, so history comes back empty
+    rather than containing an unparseable/malformed entry."""
+    parcel = normalize_parcel(
+        LOST_CAPTURE_ENTRY, awb=LOST_CAPTURE_CODE, include_history=True
+    )
+    assert parcel["status"] == ParcelStatus.PROBLEM
+    assert parcel["raw_status"] == "LOST"
+    assert parcel["delivered"] is False
+    assert parcel["delivered_at"] is None
+    assert parcel["history"] == []
+    assert "unconfirmed" not in caplog.text
+    assert "field we do not map yet" not in caplog.text
 
 
 def test_normalize_first_payload_log_is_redacted(caplog):

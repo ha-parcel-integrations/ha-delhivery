@@ -53,17 +53,22 @@ posture narrower than a fully-reconstructed carrier but still stricter than
 the suite norm on anything about *shape*:
 
 - **`_STATUS_MAP` in `parcels.py` ships filled with all 16 first-party
-  values** (11 `hqStatus` + 5 `trackingStates[].label` ladder), but every
-  mapped hit still self-reports via `_warn_uncertain_status` — **on every
-  occurrence, not just once** — because neither vocabulary has been
-  wire-confirmed. This mirrors `ha-nova-post`'s `_warn_uncertain_status`
-  pattern (its StatusCode `2`), generalised to the whole map instead of one
-  entry. Distinct from the ordinary one-shot "totally unmapped value"
-  warning, which stays for anything outside these 16. **Do not case-fold
-  before lookup** — `LOST`/`RTO`/`DTO` are upper case among title-case
-  `hqStatus` siblings; the map is keyed on the literal, unnormalised string.
-  Move a value out of `_UNCERTAIN_STATUSES` (not out of `_STATUS_MAP`) once
-  a real capture confirms it — one entry at a time, never wholesale.
+  values** (11 `hqStatus` + 5 `trackingStates[].label` ladder). 15 of them
+  still self-report via `_warn_uncertain_status` — **on every occurrence,
+  not just once** — because neither vocabulary had been wire-confirmed. This
+  mirrors `ha-nova-post`'s `_warn_uncertain_status` pattern (its StatusCode
+  `2`), generalised to the whole map instead of one entry. Distinct from the
+  ordinary one-shot "totally unmapped value" warning, which stays for
+  anything outside these 16. **Do not case-fold before lookup** —
+  `LOST`/`RTO`/`DTO` are upper case among title-case `hqStatus` siblings; the
+  map is keyed on the literal, unnormalised string. Move a value out of
+  `_UNCERTAIN_STATUSES` (not out of `_STATUS_MAP`) once a real capture
+  confirms it — one entry at a time, never wholesale. **`hqStatus` `"LOST"`
+  is the first one confirmed this way**, by the 2026-08-24 real capture (see
+  below) — it is out of `_UNCERTAIN_STATUSES`, silent on every occurrence
+  now. The `trackingStates[].label` value seen alongside it in that same
+  capture (`"Lost"`, title case) is a *different* key from the ladder's own
+  `"CANCELLED"` et al. and is still unconfirmed/unmapped.
 - **Status resolution is `hqStatus` first, `trackingStates[].label` ladder
   as fallback** (`_resolve_raw_status`) — `hqStatus` is the finer-grained
   field. The ladder fallback (`_extract_ladder_label`) prefers the step
@@ -130,10 +135,27 @@ the suite norm on anything about *shape*:
   tracking-code semantics (one field meaning two different things), which is
   a product decision, not a payload-mapping fix — see TODO.md.
 - **Coverage is necessarily thinner than a carrier with a confirmed
-  payload.** `tests/payloads.py` is explicitly marked **synthetic, not
-  captured** — it proves the code does not crash and degrades gracefully on
-  *a* plausible shape using first-party field *names*, not that this is
-  *the* real shape. See TODO.md for the "add a real fixture" checklist item.
+  payload**, though less so since 2026-08-24: `tests/payloads.py`'s
+  `LOST_CAPTURE_ENTRY` is a verbatim real `data[]` entry (redacted per
+  `DIAGNOSTICS_REDACT_KEYS` — `awb`/`referenceNo`/nested `cityLocation`
+  replaced with obvious placeholders, never fabricated). Everything else in
+  that module stays **synthetic** — it proves the code does not crash and
+  degrades gracefully on *a* plausible shape using first-party field
+  *names*, not that this is *the* real shape for statuses other than
+  `LOST`.
+- **The 2026-08-24 capture also confirmed ten more top-level field names**
+  (`currentFlow`, `currentTrackIndex`, `deliveryDate_v1`,
+  `deliveryPillLabel`, `essential`, `isDirectPTL`, `isMaster`,
+  `productType`, `subText`, `timelineModifications` — now in
+  `_KNOWN_TOP_LEVEL_KEYS`) and surfaced a real gap worth knowing about
+  before touching history/timestamp logic: in that capture, **every
+  `scanDateTime`** — both the step-level one and the one inside `scans[]` —
+  was an empty string, so `build_history`/`_last_scan_timestamp` extract
+  nothing from it, even though a real timestamp exists at the (currently
+  unmapped) top-level `status.statusDateTime`. `LOST` is a terminal/edge
+  status; whether a normal in-transit/delivered capture behaves the same
+  way is still unknown — do not start reading `status.statusDateTime` as a
+  history/`delivered_at` source without a non-`LOST` capture to justify it.
 
 ### The Origin/Referer headers are not a credential
 
