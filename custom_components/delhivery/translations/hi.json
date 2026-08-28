@@ -57,23 +57,23 @@
           }
         },
         "menu_options": {
-          "parcels": "Parcels",
-          "settings": "Settings"
+          "parcels": "पार्सल",
+          "settings": "सेटिंग्स"
         }
       },
       "parcels": {
-        "title": "Parcels",
+        "title": "पार्सल",
         "data": {
-          "tracking_codes": "Tracking codes"
+          "tracking_codes": "ट्रैकिंग कोड"
         }
       },
       "settings": {
-        "title": "Settings",
+        "title": "सेटिंग्स",
         "data": {
-          "delivered_filter_type": "Delivered parcels: filter by",
-          "delivered_filter_amount": "Delivered parcels: amount",
-          "include_history": "Include status history",
-          "refresh_interval": "Refresh every"
+          "delivered_filter_type": "वितरित पार्सल: फ़िल्टर करें",
+          "delivered_filter_amount": "वितरित पार्सल: संख्या",
+          "include_history": "स्थिति इतिहास शामिल करें",
+          "refresh_interval": "हर बार ताज़ा करें"
         }
       }
     },
