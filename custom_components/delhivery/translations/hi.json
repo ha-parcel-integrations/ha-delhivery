@@ -55,6 +55,25 @@
               "refresh_interval": "इंटीग्रेशन कितनी बार Delhivery से पार्सल अपडेट के लिए जांच करता है। धीमा अंतराल Delhivery के API पर कम दबाव डालता है; अधिकतर पार्सल के लिए 30 मिनट का डिफ़ॉल्ट पर्याप्त है।"
             }
           }
+        },
+        "menu_options": {
+          "parcels": "Parcels",
+          "settings": "Settings"
+        }
+      },
+      "parcels": {
+        "title": "Parcels",
+        "data": {
+          "tracking_codes": "Tracking codes"
+        }
+      },
+      "settings": {
+        "title": "Settings",
+        "data": {
+          "delivered_filter_type": "Delivered parcels: filter by",
+          "delivered_filter_amount": "Delivered parcels: amount",
+          "include_history": "Include status history",
+          "refresh_interval": "Refresh every"
         }
       }
     },
