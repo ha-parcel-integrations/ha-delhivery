@@ -45,15 +45,6 @@
             "data_description": {
               "include_history": "प्रत्येक पार्सल के लिए एक history एट्रिब्यूट जोड़ें जिसमें हर स्थिति अपडेट (टाइमस्टैंप, स्थिति, मूल टेक्स्ट) सूचीबद्ध हो। डिफ़ॉल्ट रूप से बंद।"
             }
-          },
-          "polling": {
-            "name": "पोलिंग",
-            "data": {
-              "refresh_interval": "इतने समय बाद रीफ्रेश करें"
-            },
-            "data_description": {
-              "refresh_interval": "इंटीग्रेशन कितनी बार Delhivery से पार्सल अपडेट के लिए जांच करता है। धीमा अंतराल Delhivery के API पर कम दबाव डालता है; अधिकतर पार्सल के लिए 30 मिनट का डिफ़ॉल्ट पर्याप्त है।"
-            }
           }
         },
         "menu_options": {
@@ -72,8 +63,7 @@
         "data": {
           "delivered_filter_type": "वितरित पार्सल: फ़िल्टर करें",
           "delivered_filter_amount": "वितरित पार्सल: संख्या",
-          "include_history": "स्थिति इतिहास शामिल करें",
-          "refresh_interval": "हर बार ताज़ा करें"
+          "include_history": "स्थिति इतिहास शामिल करें"
         }
       }
     },
@@ -83,15 +73,6 @@
     }
   },
   "selector": {
-    "refresh_interval": {
-      "options": {
-        "15": "15 मिनट",
-        "30": "30 मिनट",
-        "60": "60 मिनट",
-        "120": "120 मिनट",
-        "240": "240 मिनट"
-      }
-    },
     "delivered_filter_type": {
       "options": {
         "days": "दिन",
