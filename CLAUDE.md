@@ -34,6 +34,13 @@ you act in one of these areas:
 
 ## Carrier-specific notes
 
+**No `awaiting_pickup` sensor yet — unconfirmed, not structural.** Nothing in
+either documented status ladder corresponds to `at_pickup_point`
+(carrier-research's `delhivery.md`), so `pickup`/`pickup_point` stay
+`False`/`None` in `parcels.py`. That is the best evidence on file, not a
+proof the status can never occur — revisit if carrier-research settles it
+either way. See `.github/CONVENTIONS.md`'s pickup-point convention.
+
 **API mechanics live in `carrier-research/delhivery/api/` (private research
 repo)** — the endpoint, the fixed Origin/Referer headers, the not-found
 envelope, the first-party payload field names, and the payload→canonical
