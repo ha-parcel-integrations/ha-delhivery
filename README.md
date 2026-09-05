@@ -120,7 +120,7 @@ A delivered parcel moves from its per-parcel sensor to the delivered sensor auto
 
 ## Parcel status reference
 
-The `status` field is the carrier-agnostic enum shared by the whole integration family. Delhivery's own status strings (`hqStatus`, falling back to the `trackingStates` progress ladder) are mapped to all eight values below, but — since no real AWB has ever been run through the endpoint — every mapped status still logs a self-reporting warning until real users' logged reports confirm it against the live API.
+The `status` field is the carrier-agnostic enum shared by the whole integration family. Delhivery's own status strings (`hqStatus`, falling back to the `trackingStates` progress ladder) are mapped to the values below — `at_pickup_point` has no known raw status yet, see `CLAUDE.md` — but since no real AWB has ever been run through the endpoint, every mapped status still logs a self-reporting warning until real users' logged reports confirm it against the live API.
 
 | Status | Meaning |
 |---|---|
