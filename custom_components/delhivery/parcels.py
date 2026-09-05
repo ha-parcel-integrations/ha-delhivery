@@ -76,8 +76,8 @@ def _warn_once(key: str, message: str, *args: Any) -> None:
     )
 
 
-# The first-party field inventory for a ``data[]`` entry
-# (tracking.md#the-order-object-an-entry-in-data). These are now known field
+# The first-party field inventory for a ``data[]`` entry.
+# These are now known field
 # *names* — first-party fact as of 2026-08-09 — so they no longer trip the
 # "unexpected key" WARNING even though most stay unused/``None`` in
 # :func:`normalize_parcel` pending stronger evidence about what they contain.
@@ -208,9 +208,9 @@ def _warn_first_payload(entry: dict) -> None:
 def _warn_scan_shape(value: Any) -> None:
     """Report, once, that a step's ``scans`` entry has a shape not parsed.
 
-    ``trackingStates[].scans[]`` is the real event history
-    (tracking.md#scans--the-actual-event-history) — a shape mismatch here
-    means that step's events are skipped, not that the whole parcel fails.
+    ``trackingStates[].scans[]`` is the real event history — a shape
+    mismatch here means that step's events are skipped, not that the whole
+    parcel fails.
     """
     _warn_once(
         "scans_shape",
@@ -264,8 +264,7 @@ def _warn_unparseable_promise_date(value: Any) -> None:
     )
 
 
-# Both first-party vocabularies (tracking.md#status-vocabulary--first-party-
-# not-yet-observed), reproduced verbatim from the research.
+# Both first-party vocabularies, reproduced verbatim from the research.
 # ``hqStatus`` is the finer-grained field and takes priority; the
 # ``trackingStates[].label`` ladder (upper case, closed 5-value set) is the
 # fallback used only when ``hqStatus`` is absent — see
@@ -294,8 +293,8 @@ _STATUS_MAP: dict[str, ParcelStatus] = {
 }
 
 # Every entry above is first-party in *name* only — neither vocabulary has
-# ever been observed on the wire (tracking.md's own framing: "not yet
-# observed"), so unlike ha-nova-post's single contested StatusCode, the
+# ever been observed on the wire ("not yet observed" is the research's own
+# framing), so unlike ha-nova-post's single contested StatusCode, the
 # *whole* map is uncertain here. Mirrors ha-nova-post's
 # ``_warn_uncertain_status`` pattern, generalised to every key: a mapped hit
 # still self-reports on every occurrence (not just once) via
@@ -340,7 +339,7 @@ def _extract_ladder_label(tracking_states: Any) -> str | None:
     """Return the current step's ``label`` from the ``trackingStates`` ladder.
 
     ``trackingStates`` lists every step of the whole journey regardless of
-    progress (tracking.md#trackingstates--the-step-list) — the *last* entry
+    progress — the *last* entry
     is not necessarily the current one. The confirmed ``stepStatus`` field
     (``'unfinished' | 'finished' | 'current'``) is what actually marks
     position: prefer the step marked ``'current'``; fall back to the most
@@ -377,9 +376,10 @@ def _extract_ladder_label(tracking_states: Any) -> str | None:
 def _resolve_raw_status(raw: dict) -> str | None:
     """Return the raw status string to map onto :class:`ParcelStatus`.
 
-    ``hqStatus`` is the finer-grained, higher-priority field
-    (tracking.md "Which to map from"); the ``trackingStates[].label`` ladder
-    is only consulted when ``hqStatus`` is absent, empty or not a string.
+    ``hqStatus`` is the finer-grained, higher-priority field — the
+    research's own answer to "which to map from"; the ``trackingStates[].label``
+    ladder is only consulted when ``hqStatus`` is absent, empty or not a
+    string.
     """
     hq_status = raw.get("hqStatus")
     if isinstance(hq_status, str) and hq_status:
@@ -515,7 +515,7 @@ def build_history(
 
     ``trackingStates`` is a coarse step ladder; the real event history hangs
     underneath each step in ``scans[]`` as ``{scanDateTime, scanNslRemark,
-    cityLocation}`` (tracking.md#scans--the-actual-event-history) — **not**
+    cityLocation}`` — **not**
     at a top-level ``scans`` key, which was the earlier reconstruction's
     mistake. Each scan is mapped to ``{timestamp, status, raw_status}`` using
     its *containing step's* ``label`` — a confirmed field name — rather than

@@ -13,13 +13,12 @@ from .const import DIAGNOSTICS_REDACT_KEYS
 # identifies a person, an address or a specific parcel. Over-redacting is
 # cheap; under-redacting leaks a user's home address into a GitHub thread.
 #
-# Field names are first-party (see
-# tracking.md#diagnostics-redaction--revised-still-pre-capture), but no
+# Field names are first-party, but no
 # populated data[] entry has ever been captured, so this is still
 # grounded-but-unverified, not a walked real payload. Shared with
 # parcels.py's first-payload WARNING (one list to keep current); see
-# const.DIAGNOSTICS_REDACT_KEYS for the full rationale and tracking.md for
-# the re-check obligation.
+# const.DIAGNOSTICS_REDACT_KEYS for the full rationale and the re-check
+# obligation.
 TO_REDACT = DIAGNOSTICS_REDACT_KEYS
 
 

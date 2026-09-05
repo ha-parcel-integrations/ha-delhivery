@@ -30,10 +30,10 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Deliberately left at the template's loose default — per tracking.md:
+# Deliberately left at the template's loose default:
 # the only data point on the AWB format is one 13-digit *bogus* probe number,
 # which proves nothing about the real prefix/length range (the SunYou
-# tracking-code-format lesson, see tracking.md#tracking-code-format). A tight
+# tracking-code-format lesson). A tight
 # regex here would reject a real AWB format nobody has confirmed just as
 # easily as a bogus one, so this stays permissive and lets the API's own
 # "invalid AWB or very old package" response do the rejecting. This regex is

@@ -27,7 +27,7 @@ from .const import DELHIVERY_ORIGIN, DELHIVERY_REFERER, TRACKING_API_URL
 
 _LOGGER = logging.getLogger(__name__)
 
-# Fixed, hardcoded per tracking.md#endpoint--auth — never derived from the
+# Fixed and hardcoded — never derived from the
 # tracking code or anything user-specific, so a single module-level dict is
 # correct (not per-request state).
 _HEADERS = {

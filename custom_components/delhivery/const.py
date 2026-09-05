@@ -59,14 +59,13 @@ TRACKING_API_URL = (
 # are constant strings never derived from anything user-specific — but drop
 # them and every request 401s with ``{"message": "ERROR: Invalid Origin"}``,
 # which reads like the endpoint moved rather than a missing header. This is
-# the main trap in the mechanics doc (tracking.md): hardcode both,
+# the main trap in the mechanics doc: hardcode both,
 # never make them user-configurable.
 DELHIVERY_ORIGIN = "https://www.delhivery.com"
 DELHIVERY_REFERER = "https://www.delhivery.com/"
 
 # Consumer tracking-page deep-link, confirmed verbatim (an interpolation
-# template) in the research — see
-# tracking.md#payload--first-party-field-names-still-not-seen-on-the-wire.
+# template) in the research.
 # High confidence (unlike almost everything else in this module): unlike a
 # payload field, a hardcoded URL template can't have the wrong shape.
 # normalize_parcel always populates ``url`` from this, same style as
@@ -74,8 +73,7 @@ DELHIVERY_REFERER = "https://www.delhivery.com/"
 DELHIVERY_TRACKING_URL = "https://www.delhivery.com/track-v2/package/{awb}"
 
 # Diagnostics / first-payload-log redaction. Field **names** are first-party
-# now (see
-# tracking.md#diagnostics-redaction--revised-still-pre-capture), but no
+# now, but no
 # populated ``data[]`` entry has ever been captured, so this is still
 # grounded-but-unverified: types, nesting and whether a name really shows up
 # under this exact key remain inference. MUST be re-checked leaf by leaf the
@@ -97,9 +95,8 @@ DIAGNOSTICS_REDACT_KEYS = {
     # included: it would redact the whole tracked-codes list at once, hiding
     # everything but the per-item "tracking_code" leaf is the actual PII.
     "tracking_code",
-    # first-party Delhivery field names (tracking.md "The order object" /
-    # "Diagnostics redaction") — grounded in the research, still never
-    # checked against a real body
+    # first-party Delhivery field names — grounded in the research, still
+    # never checked against a real body
     "consignee",
     "clientName",
     "addressDetails",
