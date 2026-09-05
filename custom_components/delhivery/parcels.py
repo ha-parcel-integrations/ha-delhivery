@@ -6,8 +6,7 @@ mapping apart from the coordinator, and makes it unit-testable without
 spinning up HA.
 
 **Read this before changing the mapping.** As of 2026-08-09 the field names
-below are **first-party fact** (see
-``carrier-research/api/delhivery/tracking.md``), not a third-party client's
+below are **first-party fact**, not a third-party client's
 guesswork. What is still **not** confirmed is a *populated* ``data[]``
 entry: no real AWB has ever been run through the endpoint, so field types,
 nesting and optionality remain inference, and neither status vocabulary

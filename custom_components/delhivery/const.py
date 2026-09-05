@@ -43,8 +43,7 @@ KNOWN_CAPABILITIES = frozenset(
 # ``PromiseDeliveryDate``, tracking URL template, and scan-based history exist.
 CAPABILITIES = frozenset({"delivery_window", "url", "history"})
 
-# Keyless GET, keyed on the AWB (``wbn``) alone — see
-# carrier-research/api/delhivery/tracking.md#endpoint--auth. Live
+# Keyless GET, keyed on the AWB (``wbn``) alone. Live
 # control-tested 2026-08-06 and re-probed 2026-08-09: a bogus AWB answers
 # HTTP 200 with a clean ``{"data": []}`` envelope; a *populated* ``data[]``
 # entry has never been observed. Since 2026-08-09 the field names below are
@@ -152,8 +151,7 @@ DEFAULT_DELIVERED_FILTER_TYPE = "days"
 DEFAULT_DELIVERED_FILTER_AMOUNT = 7
 
 # Dynamic, status-driven polling — unconditional, no user-facing interval
-# option. See carrier-research/dynamic-polling.md for the full algorithm and
-# the reasoning behind it.
+# option.
 #
 # Quiet window: no polling between these local hours except the two anchors
 # below, for overnight / end-of-day catch-up.

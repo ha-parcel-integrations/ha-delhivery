@@ -2,9 +2,7 @@
 
 Keyless GET, keyed on the AWB (``wbn``) alone — but every request must carry
 two fixed headers (``Origin``/``Referer``, see :mod:`.const`) or the endpoint
-answers a uniform ``401``. See
-``carrier-research/api/delhivery/tracking.md#endpoint--auth`` for the full
-write-up; this module only implements it.
+answers a uniform ``401``.
 
 The envelope lies just like SunYou's and Cainiao's: ``HTTP 200`` +
 ``statusCode: 200`` + a ``message`` string all read as success even when the
