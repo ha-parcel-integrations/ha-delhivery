@@ -59,7 +59,7 @@ def _entry_with(parcels: list[dict]) -> MockConfigEntry:
 
 
 # ---------------------------------------------------------------------------
-# Dynamic polling (dynamic-polling.md Section 2.1, barcode-based) — pure
+# Dynamic polling (barcode-based) — pure
 # helpers
 # ---------------------------------------------------------------------------
 
