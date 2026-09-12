@@ -30,17 +30,6 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Deliberately left at the template's loose default:
-# the only data point on the AWB format is one 13-digit *bogus* probe number,
-# which proves nothing about the real prefix/length range (the SunYou
-# tracking-code-format lesson). A tight
-# regex here would reject a real AWB format nobody has confirmed just as
-# easily as a bogus one, so this stays permissive and lets the API's own
-# "invalid AWB or very old package" response do the rejecting. This regex is
-# also what the ``track_parcel`` service validates against.
-_TRACKING_CODE_RE = re.compile(r"^[A-Z0-9]{6,30}$")
-
-
 def normalize_tracking_code(value: str) -> str:
     """Return the tracking code upper-cased with separators stripped.
 
@@ -52,8 +41,8 @@ def normalize_tracking_code(value: str) -> str:
 
 
 def valid_tracking_code(value: str) -> bool:
-    """Whether ``value`` looks like a Delhivery tracking code."""
-    return bool(_TRACKING_CODE_RE.match(value))
+    """Accept every non-empty code; Delhivery's real AWB format is not confirmed and varies too much to gate on a guessed shape."""
+    return bool(value)
 
 
 def _current_parcels(entry: ConfigEntry) -> list[dict[str, str]]:
