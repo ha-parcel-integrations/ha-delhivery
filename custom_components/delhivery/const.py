@@ -43,6 +43,10 @@ KNOWN_CAPABILITIES = frozenset(
 # ``PromiseDeliveryDate``, tracking URL template, and scan-based history exist.
 CAPABILITIES = frozenset({"delivery_window", "url", "history"})
 
+# Fields not confirmed yet — the docs site shows them as "awaiting data".
+# Move a field into the declaration above once a real parcel shows it.
+PENDING_CAPABILITIES = frozenset({"weight"})
+
 # Keyless GET, keyed on the AWB (``wbn``) alone. Live
 # control-tested 2026-08-06 and re-probed 2026-08-09: a bogus AWB answers
 # HTTP 200 with a clean ``{"data": []}`` envelope; a *populated* ``data[]``
