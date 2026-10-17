@@ -179,13 +179,12 @@ def active_sample(code: str = ACTIVE_CODE) -> dict:
 def unmapped_status_sample(code: str = ACTIVE_CODE) -> dict:
     """An ``hqStatus`` value nothing in ``_STATUS_MAP`` covers.
 
-    Real values the app itself never leaked (e.g. a status added since the
-    3.4.6 build this doc tore down) fall through to the ordinary one-shot
-    "unrecognised" warning, distinct from the "mapped but unconfirmed"
-    warning every one of the 16 known values gets.
+    A status added since the app build the vocabulary came from falls through
+    to the ordinary one-shot "unrecognised" warning, distinct from the
+    "mapped but unconfirmed" warning a known-but-unseen value gets.
     """
     return {
-        "hqStatus": "Out for Delivery",  # not one of the 11 known hqStatus values
+        "hqStatus": "Reattempt Scheduled",  # outside both vocabularies
         "trackingStates": None,
         "PromiseDeliveryDate": None,
     }

@@ -9,7 +9,7 @@
 
 A custom Home Assistant integration that tracks your [Delhivery](https://www.delhivery.com) (India) parcels by AWB (waybill) number. No account is needed — you enter the tracking code yourself, just like on the Delhivery website.
 
-> ⚠️ **Pre-1.0 release.** The endpoint works and one real parcel (`LOST`) has confirmed one status. Every other mapped status still logs a self-reporting warning until real users' logs confirm it; see [Troubleshooting](#troubleshooting).
+> ℹ️ Statuses a parcel reaches before it is delivered — in transit, out for delivery, waiting at a pickup point — have not been seen on a real parcel yet and still log a self-reporting warning. See [Troubleshooting](#troubleshooting).
 
 Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) family: it publishes the same canonical parcel format, statuses and events as the other carrier integrations, so it plugs straight into the [Parcel Aggregator](https://github.com/ha-parcel-integrations/ha-parcel-aggregator) and cross-carrier automations.
 
@@ -121,7 +121,7 @@ A delivered parcel moves from its per-parcel sensor to the delivered sensor auto
 
 ## Parcel status reference
 
-The `status` field is the carrier-agnostic enum shared by the whole integration family. Delhivery's own status strings (`hqStatus`, falling back to the `trackingStates` progress ladder) are mapped to the values below — `at_pickup_point` has no known raw status yet, see `CLAUDE.md` — but since no real AWB has ever been run through the endpoint, every mapped status still logs a self-reporting warning until real users' logged reports confirm it against the live API.
+The `status` field is the carrier-agnostic enum shared by the whole integration family. Delhivery's own status strings (`hqStatus`, falling back to the `trackingStates` progress ladder) are mapped to the values below — `at_pickup_point` has no known raw status yet, see `CLAUDE.md` — Delivery, both return flows, lost and cancelled are confirmed against real parcels; the statuses a parcel passes through earlier are mapped but unconfirmed, and each logs a self-reporting warning until a real parcel confirms it.
 
 | Status | Meaning |
 |---|---|
@@ -177,7 +177,7 @@ logger:
 
 ## Troubleshooting
 
-- **A log line says a status was "mapped to '...' — but ... this mapping is still ... not a confirmed value"** — this is expected and not an error: every one of Delhivery's known statuses is mapped, but (`LOST` aside, confirmed 2026-08-24) none has yet been confirmed against a real, live response. Please [open an issue](https://github.com/ha-parcel-integrations/ha-delhivery/issues/new?template=unrecognised_status.yml) and paste the line, along with what the parcel was actually doing — that is exactly what turns "mapped but unconfirmed" into "confirmed".
+- **A log line says a status was "mapped to '...' — but ... this mapping is still ... not a confirmed value"** — this is expected and not an error: the statuses a parcel reaches before delivery are mapped from the carrier's own vocabulary but have not been seen on a real parcel yet. Please [open an issue](https://github.com/ha-parcel-integrations/ha-delhivery/issues/new?template=unrecognised_status.yml) and paste the line, along with what the parcel was actually doing — that is exactly what turns "mapped but unconfirmed" into "confirmed".
 - **A status logs "Unrecognised Delhivery status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-delhivery/issues/new?template=unrecognised_status.yml) with the logged line; this is exactly the report that grows the status map.
 - **A log line starts with "First real Delhivery data\[\] entry ever captured"** — please open an issue and paste it. This is the single most useful report this integration can receive: it shows the real response shape (redacted, per the diagnostics rules).
 - **A log line mentions "a shape we have never parsed"** (for `trackingStates`, `hqStatus`, or `scans`) — same as above, please share it; it tells us where the real response differs from what this integration expects, so the mapping can be corrected.

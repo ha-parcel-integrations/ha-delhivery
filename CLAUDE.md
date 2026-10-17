@@ -51,42 +51,71 @@ repo)** — the endpoint, the fixed Origin/Referer headers, the not-found
 envelope, the first-party payload field names, and the payload→canonical
 mapping. Do not duplicate them here.
 
-### ⚠️ Read this before touching `parcels.py` — names are first-party, values are not
+### ⚠️ Read this before touching `parcels.py`
 
-A 2026-08-09 correction (see `carrier-research/delhivery/api/`, private)
-moved the payload's **field names** and **status vocabularies** from
-third-party guesswork to first-party fact. What is **still** true: no real
-AWB has ever been run through the
-endpoint, so no *populated* `data[]` entry has ever actually been seen —
-types, nesting and optionality of every field remain inference, and neither
-status vocabulary (`hqStatus` nor the `trackingStates[].label` ladder) has
-ever been observed on the wire. That keeps this integration's pre-1.0
-posture narrower than a fully-reconstructed carrier but still stricter than
-the suite norm on anything about *shape*:
+A 2026-08-09 correction moved the payload's **field names** and **status
+vocabularies** from third-party guesswork to first-party fact; a 2026-08-24
+capture confirmed the first populated `data[]` entry; and a **2026-10-17
+sweep of thirteen real AWBs** — covering `Delivered`, `RTO`, `DTO`, `LOST`
+and `Closed` — confirmed the shape end to end. The mapping is no longer
+inference. What that sweep settled, and the traps it exposed:
 
-- **`_STATUS_MAP` in `parcels.py` ships filled with all 16 first-party
-  values** (11 `hqStatus` + 5 `trackingStates[].label` ladder). 15 of them
-  still self-report via `_warn_uncertain_status` — **on every occurrence,
-  not just once** — because neither vocabulary had been wire-confirmed. This
-  mirrors `ha-nova-post`'s `_warn_uncertain_status` pattern (its StatusCode
-  `2`), generalised to the whole map instead of one entry. Distinct from the
-  ordinary one-shot "totally unmapped value" warning, which stays for
-  anything outside these 16. **Do not case-fold before lookup** —
-  `LOST`/`RTO`/`DTO` are upper case among title-case `hqStatus` siblings; the
-  map is keyed on the literal, unnormalised string. Move a value out of
-  `_UNCERTAIN_STATUSES` (not out of `_STATUS_MAP`) once a real capture
-  confirms it — one entry at a time, never wholesale. **`hqStatus` `"LOST"`
-  is the first one confirmed this way**, by the 2026-08-24 real capture (see
-  below) — it is out of `_UNCERTAIN_STATUSES`, silent on every occurrence
-  now. The `trackingStates[].label` value seen alongside it in that same
-  capture (`"Lost"`, title case) is a *different* key from the ladder's own
-  `"CANCELLED"` et al. and is still unconfirmed/unmapped.
+- **`data[]` always holds exactly one entry**, including for a master AWB
+  carrying three bags (`isMaster: true`, `bag_count: 3`). A multi-leg journey
+  is expressed *inside* that entry as the `trackingStates[]` ladder, not as
+  several records, so `api.py` reading `data[0]` is correct and complete.
+- **`scanDateTime` and `scanDate` are always empty strings** — on all
+  eighteen scans across all thirteen parcels, not just the `LOST` edge case
+  the 2026-08-24 note wondered about. `status.statusDateTime` is the only
+  timestamp this endpoint populates, so `delivered_at` reads that first and
+  falls back to a scan. Without it every delivered parcel had no delivery
+  time, which left the delivered list unsortable and the "days" retention
+  filter keeping everything.
+- **`status.statusDateTime` is Indian local time, not UTC.** It arrives
+  naive; read as IST it agrees with the carrier's own Morning / Afternoon /
+  Evening label on ten of eleven parcels, read as UTC on two. Hence
+  `const.CARRIER_TIMEZONE` and `_carrier_datetime`, which is deliberately
+  separate from `parse_iso` — the latter still reads naive as UTC purely so a
+  mixed list sorts without crashing.
+- **`currentTrackIndex` marks ladder position, not `stepStatus`.** No live
+  step has ever carried `stepStatus`; it is still honoured as a fallback, but
+  the index is what works, with the last labelled step as a final resort.
+- **`PromiseDeliveryDate` never appeared** on any captured parcel, so
+  `planned_from`/`planned_to` came back `None` throughout. It stays declared
+  in `CAPABILITIES` because the mapping is implemented and every captured
+  parcel had already finished — this is "never seen populated", not proof the
+  carrier omits it. The human `deliveryDate`
+  ("24 Sep 2026, Afternoon") stays unused: on a finished parcel it is a
+  record, not a prediction, and no in-flight capture exists to show which it
+  is while a parcel is moving.
+
+The pre-1.0 posture on *shape* still applies to everything the sweep did not
+reach — an in-flight parcel, a pickup point, weight:
+
+- **`_STATUS_MAP` carries both vocabularies plus the upper-case spelling
+  `status.status` uses.** Eleven entries are listed in
+  `_CONFIRMED_STATUSES` and are silent; the rest still self-report via
+  `_warn_uncertain_status` — **on every occurrence, not just once** — because
+  no parcel has reached them. This mirrors `ha-nova-post`'s pattern,
+  generalised to the whole map. Distinct from the ordinary one-shot "totally
+  unmapped value" warning, which stays for anything outside the map.
+  **Do not case-fold before lookup**: `LOST`/`RTO`/`DTO` are upper case among
+  title-case `hqStatus` siblings, the ladder spells its own labels in title
+  case (`On the Way`, `Out for Delivery`, `Returned`, `Cancelled`, `Lost`),
+  and `status.status` spells the same vocabulary in upper case — all three
+  live in one dict keyed on the literal string. Add to `_CONFIRMED_STATUSES`
+  (never remove from `_STATUS_MAP`) as captures confirm values.
+  `hqStatus` `"Closed"` maps to `problem`: it rode alongside
+  `deliveryPillLabel: "Cancelled"`, `deliveryDate_v1: "Cancelled on 10 Oct"`
+  and a `Cancelled` ladder label, the same mutually-agreeing standard that
+  confirmed `LOST`.
 - **Status resolution is `hqStatus` first, `trackingStates[].label` ladder
   as fallback** (`_resolve_raw_status`) — `hqStatus` is the finer-grained
-  field. The ladder fallback (`_extract_ladder_label`) prefers the step
-  marked `stepStatus: 'current'`; the *last* entry in the array is **not**
-  necessarily current, since `trackingStates` lists every step of the whole
-  journey regardless of progress.
+  field and was present on every captured parcel, so the ladder path is a
+  safety net rather than a normal route. `_extract_ladder_label` positions
+  itself on `currentTrackIndex`, then `stepStatus: 'current'`, then the last
+  labelled step; the *last* entry is not automatically current, since
+  `trackingStates` can list steps not yet reached.
 - **`build_history` reads `trackingStates[].scans[]`, never a top-level
   `scans` key.** The earlier reconstruction had this backwards —
   `trackingStates` is a coarse step ladder, and the real event history hangs
@@ -95,17 +124,19 @@ the suite norm on anything about *shape*:
   *containing step's* `label`, mapped through the same `_STATUS_MAP` — a
   confirmed field name, not an invented per-scan status.
 - **`PromiseDeliveryDate` (capital P) maps to `planned_from` only** — never
-  `planned_to`. A separate, lower-confidence `deliveryDate` key exists too
-  but is not used pending stronger evidence; a single field name is no
-  evidence of a window either way.
+  `planned_to`. No captured parcel has carried it yet. A separate,
+  lower-confidence `deliveryDate` key exists too but is not used pending
+  stronger evidence; a single field name is no evidence of a window either
+  way.
 - **`sender`/`receiver`/`url` are populated now** — `sender` ← `clientName`,
   `receiver` ← `consignee` (first-party, `.get()`-guarded reads only, no
   further validation since types/optionality are unconfirmed), `url` ←
   `const.DELHIVERY_TRACKING_URL.format(awb=...)`, a literal template
   confirmed verbatim — always populated, the one high-confidence field in
   this whole mapping.
-- **`delivered_at` comes from the last parseable `scans[]` timestamp**
-  (`_last_scan_timestamp`), resolved once `status` maps to `delivered` —
+- **`delivered_at` comes from `status.statusDateTime`**, falling back to the
+  last parseable `scans[]` timestamp (`_last_scan_timestamp`), resolved once
+  `status` maps to `delivered` —
   **independent of the `include_history` opt-in**, since the delivered-list
   sort (`sort_parcels_by_ts`) and the default "days" retention filter
   (`apply_delivered_filter`) both depend on it regardless of whether the
@@ -124,17 +155,20 @@ the suite norm on anything about *shape*:
   `_warn_uncertain_status` which is deliberately **not** deduped. **Do not
   quiet any of them without replacing the guess they guard with a real
   answer.**
-- **`DIAGNOSTICS_REDACT_KEYS` in `const.py` is grounded but still
-  pre-capture** — the 2026-08-09 correction named real fields
+- **`DIAGNOSTICS_REDACT_KEYS` in `const.py` was re-checked leaf by leaf
+  against the 2026-10-17 captures**, which added `addressInfo` (recipient
+  city/state/pincode), `scannedLocation`, and `dropUAID`/`pickupUAID` —
+  the last two carry what reads as a delivery-executive handle after the
+  facility code. The 2026-08-09 correction named real fields
   (`addressDetails`, `orderDetails`, `fePhoneObj`, `ucid_consignor`/
   `ucid_consignee`, `referenceNo`, `cityLocation` nested inside each scan,
-  `price_detail`, `orderAmount`, `paymentTerms`, `clientName`), but none of
-  it has been checked against a real body — shared between
-  `diagnostics.TO_REDACT` and the first-payload WARNING so there is exactly
-  one list to update. **Must still be re-checked, leaf by leaf, against the
-  first real capture** (the Dynalogic lesson: nested address blocks are the
-  usual miss) — older placeholder guesses are kept rather than removed,
-  over-redaction is cheap.
+  `price_detail`, `orderAmount`, `paymentTerms`, `clientName`); of those, the
+  captures showed `referenceNo` and the nested `cityLocation` populated and
+  the rest absent. The list is shared between `diagnostics.TO_REDACT` and the
+  first-payload WARNING so there is exactly one list to update. Older
+  placeholder guesses are kept rather than removed — over-redaction is cheap,
+  and a field absent from a finished parcel may still appear on an in-flight
+  one (the Dynalogic lesson: nested address blocks are the usual miss).
 - **`weight`, `dimensions`, `pickup`, `pickup_point` stay `None`.** The
   research explicitly flags `weight` (`package_weight`) as low-confidence —
   the app buckets it to an icon, so it may not be a numeric kg value — and

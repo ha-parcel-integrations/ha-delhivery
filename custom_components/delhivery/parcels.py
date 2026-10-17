@@ -28,11 +28,13 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
 
 from .const import (
+    CARRIER_TIMEZONE,
     CONF_DELIVERED_FILTER_AMOUNT,
     CONF_DELIVERED_FILTER_TYPE,
     DEFAULT_DELIVERED_FILTER_AMOUNT,
@@ -130,6 +132,14 @@ _KNOWN_TOP_LEVEL_KEYS = {
     "productType",
     "subText",
     "timelineModifications",
+    # confirmed by the 2026-10-17 capture sweep (thirteen real AWBs covering
+    # Delivered, RTO, DTO, LOST and Closed)
+    "addressInfo",
+    "bag_count",
+    "dropUAID",
+    "lrn",
+    "pickupUAID",
+    "productTypeB2B",
 }
 
 # How deep the structure report walks. Comfortably past anything the known
@@ -284,7 +294,14 @@ _STATUS_MAP: dict[str, ParcelStatus] = {
     "RTO": ParcelStatus.RETURNING,
     "DTO": ParcelStatus.RETURNING,
     "LOST": ParcelStatus.PROBLEM,
-    # trackingStates[].label ladder — upper case, closed set
+    "Closed": ParcelStatus.PROBLEM,
+    # trackingStates[].label ladder, as the wire actually spells it
+    "On the Way": ParcelStatus.IN_TRANSIT,
+    "Out for Delivery": ParcelStatus.OUT_FOR_DELIVERY,
+    "Returned": ParcelStatus.RETURNING,
+    "Cancelled": ParcelStatus.PROBLEM,
+    "Lost": ParcelStatus.PROBLEM,
+    # the same vocabulary upper-cased, which is how status.status spells it
     "PICKUP": ParcelStatus.IN_TRANSIT,
     "IN TRANSIT": ParcelStatus.IN_TRANSIT,
     "OUT FOR DELIVERY": ParcelStatus.OUT_FOR_DELIVERY,
@@ -312,7 +329,29 @@ _STATUS_MAP: dict[str, ParcelStatus] = {
 # mapping, not just the field name. The trackingStates[].label ladder value
 # seen alongside it ("Lost", title case) is *not* the same key as the
 # ladder's own "CANCELLED" et al. and stays unconfirmed/unmapped.
-_UNCERTAIN_STATUSES = frozenset(_STATUS_MAP) - {"LOST"}
+# Confirmed on the wire by the 2026-10-17 sweep of thirteen real AWBs, each
+# agreeing with the self-describing fields beside it (``deliveryPillLabel``,
+# ``deliveryDate_v1``, ``status.instructions``, ``scans[].scanNslRemark``):
+# every ``hqStatus`` those parcels carried, and every ladder label spelled as
+# the wire spells it. The upper-case ladder spellings and the statuses no
+# parcel has reached yet stay uncertain and keep self-reporting.
+_CONFIRMED_STATUSES = frozenset(
+    {
+        "LOST",
+        "Closed",
+        "Delivered",
+        "RTO",
+        "DTO",
+        "Picked Up",
+        "On the Way",
+        "Out for Delivery",
+        "Returned",
+        "Cancelled",
+        "Lost",
+    }
+)
+
+_UNCERTAIN_STATUSES = frozenset(_STATUS_MAP) - _CONFIRMED_STATUSES
 
 
 def _warn_uncertain_status(raw_status: str) -> None:
@@ -335,17 +374,20 @@ def _warn_uncertain_status(raw_status: str) -> None:
     )
 
 
-def _extract_ladder_label(tracking_states: Any) -> str | None:
+def _extract_ladder_label(
+    tracking_states: Any, current_index: Any = None
+) -> str | None:
     """Return the current step's ``label`` from the ``trackingStates`` ladder.
 
     ``trackingStates`` lists every step of the whole journey regardless of
-    progress — the *last* entry
-    is not necessarily the current one. The confirmed ``stepStatus`` field
-    (``'unfinished' | 'finished' | 'current'``) is what actually marks
-    position: prefer the step marked ``'current'``; fall back to the most
-    advanced step marked ``'finished'`` when none is current. Only a list of
-    dicts, each carrying a string ``label``, is handled — anything else
-    reports the shape WARNING instead of guessing a key.
+    progress, so the *last* entry is not necessarily the current one.
+    ``currentTrackIndex`` is what marks position on the wire; the
+    ``stepStatus`` field the research described is accepted too but has never
+    arrived populated, so it only acts as a fallback. Failing both, the last
+    step wins — on every parcel captured so far the ladder holds exactly the
+    steps already reached. Only a list of dicts, each carrying a string
+    ``label``, is handled — anything else reports the shape WARNING instead
+    of guessing a key.
     """
     if not tracking_states:
         return None
@@ -353,16 +395,20 @@ def _extract_ladder_label(tracking_states: Any) -> str | None:
         _warn_trackingstates_shape(tracking_states)
         return None
 
+    labels: list[str] = []
     current_label: str | None = None
     last_finished_label: str | None = None
     saw_malformed_step = False
     for step in tracking_states:
         if not isinstance(step, dict):
             saw_malformed_step = True
+            labels.append("")
             continue
         label = step.get("label")
         if not isinstance(label, str) or not label:
+            labels.append("")
             continue
+        labels.append(label)
         step_status = step.get("stepStatus")
         if step_status == "current":
             current_label = label
@@ -370,7 +416,13 @@ def _extract_ladder_label(tracking_states: Any) -> str | None:
             last_finished_label = label
     if saw_malformed_step:
         _warn_trackingstates_shape(tracking_states)
-    return current_label or last_finished_label
+
+    if isinstance(current_index, int) and not isinstance(current_index, bool):
+        if 0 <= current_index < len(labels) and labels[current_index]:
+            return labels[current_index]
+    return current_label or last_finished_label or next(
+        (label for label in reversed(labels) if label), None
+    )
 
 
 def _resolve_raw_status(raw: dict) -> str | None:
@@ -386,7 +438,9 @@ def _resolve_raw_status(raw: dict) -> str | None:
         return hq_status
     if hq_status not in (None, ""):
         _warn_hqstatus_shape(hq_status)
-    return _extract_ladder_label(raw.get("trackingStates"))
+    return _extract_ladder_label(
+        raw.get("trackingStates"), raw.get("currentTrackIndex")
+    )
 
 
 def map_parcel_status(raw_status: str | None) -> ParcelStatus:
@@ -430,6 +484,24 @@ def parse_iso(value: str | None) -> datetime | None:
         return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _carrier_datetime(value: Any) -> datetime | None:
+    """Return an offset-aware datetime for a naive carrier timestamp.
+
+    Unlike :func:`parse_iso`, which reads a naive value as UTC purely so a
+    mixed list still sorts, this attaches the carrier's own zone — so a
+    published timestamp is the wall-clock time the scan actually happened.
+    """
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=ZoneInfo(CARRIER_TIMEZONE))
     return parsed
 
 
@@ -531,16 +603,27 @@ def build_history(
     return ordered[-max_events:]
 
 
-def _last_scan_timestamp(tracking_states: Any) -> str | None:
-    """Return the most recent parseable ``scans[]`` timestamp, or ``None``.
+def _last_scan_timestamp(raw: dict) -> str | None:
+    """Return the parcel's most recent parseable timestamp, or ``None``.
 
     Used for ``delivered_at``, independent of the ``include_history``
     opt-in — a delivered parcel's completion time is worth resolving even
     when the fuller per-event history stays switched off. An unparseable-only
     result yields ``None`` rather than an unreliable value; it is never
     guessed from an unparseable entry.
+
+    ``status.statusDateTime`` is preferred because it is the only timestamp
+    this endpoint has ever been seen to populate: across every real parcel
+    captured so far each ``scans[]`` entry carried ``scanDateTime`` and
+    ``scanDate`` as empty strings, which would otherwise leave every
+    delivered parcel without a delivery time and so unsortable.
     """
-    parseable, _unparseable = _collect_scan_entries(tracking_states)
+    status = raw.get("status")
+    if isinstance(status, dict):
+        stamped = _carrier_datetime(status.get("statusDateTime"))
+        if stamped is not None:
+            return stamped.isoformat()
+    parseable, _unparseable = _collect_scan_entries(raw.get("trackingStates"))
     if not parseable:
         return None
     return parseable[-1][1]["timestamp"]
@@ -578,7 +661,7 @@ def normalize_parcel(raw: dict, *, awb: str, include_history: bool = False) -> d
       research.
     * ``history`` comes from ``trackingStates[].scans[]`` — see
       :func:`build_history`.
-    * ``delivered_at`` is the most recent parseable ``scans[]`` timestamp
+    * ``delivered_at`` is the most recent parseable timestamp
       (see :func:`_last_scan_timestamp`) once ``delivered`` is ``True``,
       resolved regardless of ``include_history`` — otherwise ``None``.
     * every other canonical field (``pickup``, ``pickup_point``, ``weight``,
@@ -593,7 +676,7 @@ def normalize_parcel(raw: dict, *, awb: str, include_history: bool = False) -> d
     raw_status = _resolve_raw_status(raw)
     status = map_parcel_status(raw_status)
     delivered = status is ParcelStatus.DELIVERED
-    delivered_at = _last_scan_timestamp(raw.get("trackingStates")) if delivered else None
+    delivered_at = _last_scan_timestamp(raw) if delivered else None
 
     planned_from: str | None = None
     promise_date = raw.get("PromiseDeliveryDate")

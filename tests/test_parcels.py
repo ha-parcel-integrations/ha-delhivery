@@ -23,6 +23,9 @@ from custom_components.delhivery.const import (
     ParcelStatus,
 )
 from custom_components.delhivery.parcels import (
+    _carrier_datetime,
+    _extract_ladder_label,
+    _last_scan_timestamp,
     apply_delivered_filter,
     build_history,
     describe_structure,
@@ -117,11 +120,15 @@ def test_map_parcel_status_covers_all_16_known_values(raw_status, expected):
 
 def test_status_map_is_case_sensitive_lost_rto_dto_trap(caplog):
     """LOST/RTO/DTO are upper case among title-case hqStatus siblings —
-    tracking.md's casing trap. A mis-cased variant must NOT match."""
-    assert map_parcel_status("Lost") == ParcelStatus.UNKNOWN
+    the casing trap. A mis-cased variant must NOT match.
+
+    ``Lost`` is deliberately absent: it is the ladder's own spelling and is
+    mapped in its own right, so it is not a mis-casing of ``LOST``.
+    """
+    assert map_parcel_status("LoSt") == ParcelStatus.UNKNOWN
     assert map_parcel_status("Rto") == ParcelStatus.UNKNOWN
     assert map_parcel_status("dto") == ParcelStatus.UNKNOWN
-    assert "Unrecognised Delhivery status 'Lost'" in caplog.text
+    assert "Unrecognised Delhivery status 'LoSt'" in caplog.text
     assert "Unrecognised Delhivery status 'Rto'" in caplog.text
 
 
@@ -135,20 +142,19 @@ def test_status_map_ladder_and_hqstatus_do_not_collide():
 
 
 def test_mapped_status_warns_on_every_occurrence_not_once(caplog):
-    """Distinct from the unmapped-value one-shot warning: every one of the
-    16 known values is still unconfirmed on the wire, so a mapped hit
-    self-reports every time (mirrors ha-nova-post's `_warn_uncertain_status`,
-    generalised to the whole map)."""
-    map_parcel_status("Delivered")
-    map_parcel_status("Delivered")
-    map_parcel_status("Delivered")
-    assert caplog.text.count("mapped to 'delivered'") == 3
+    """Distinct from the unmapped-value one-shot warning: a value no real
+    parcel has carried yet self-reports every time it is mapped (mirrors
+    ha-nova-post's `_warn_uncertain_status`, generalised to the whole map)."""
+    map_parcel_status("Manifested")
+    map_parcel_status("Manifested")
+    map_parcel_status("Manifested")
+    assert caplog.text.count("mapped to 'registered'") == 3
 
 
 def test_uncertain_status_warning_names_the_raw_value_and_mapping(caplog):
-    map_parcel_status("RTO")
-    assert "Delhivery reported status 'RTO'" in caplog.text
-    assert "mapped to 'returning'" in caplog.text
+    map_parcel_status("In Transit")
+    assert "Delhivery reported status 'In Transit'" in caplog.text
+    assert "mapped to 'in_transit'" in caplog.text
     assert "issues/new" in caplog.text
 
 
@@ -713,9 +719,9 @@ def test_normalize_keeps_raw_payload():
 def test_normalize_unmapped_status_sample_end_to_end(caplog):
     parcel = normalize_parcel(unmapped_status_sample(), awb=ACTIVE_CODE)
     assert parcel["status"] == ParcelStatus.UNKNOWN
-    assert parcel["raw_status"] == "Out for Delivery"
+    assert parcel["raw_status"] == "Reattempt Scheduled"
     assert parcel["planned_from"] is None
-    assert "Unrecognised Delhivery status 'Out for Delivery'" in caplog.text
+    assert "Unrecognised Delhivery status 'Reattempt Scheduled'" in caplog.text
 
 
 def test_normalize_warns_on_unexpected_top_level_key(caplog):
@@ -853,3 +859,102 @@ def test_delivered_filter_keeps_unparseable_timestamp():
     """Better to show a parcel with a broken date than to silently drop it."""
     parcels = [{"barcode": "WEIRD", "delivered_at": "nonsense"}]
     assert apply_delivered_filter(parcels, _entry("days", 7)) == parcels
+
+
+# ---------------------------------------------------------------------------
+# ladder position and the carrier's own clock
+# ---------------------------------------------------------------------------
+
+
+def _ladder(*labels):
+    return [{"label": label, "date": "", "scans": []} for label in labels]
+
+
+def test_ladder_label_comes_from_current_track_index():
+    """currentTrackIndex is what marks position on the wire."""
+    ladder = _ladder("Picked Up", "On the Way", "Out for Delivery", "Delivered")
+    assert _extract_ladder_label(ladder, 2) == "Out for Delivery"
+    assert _extract_ladder_label(ladder, 0) == "Picked Up"
+
+
+def test_ladder_index_out_of_range_or_wrong_type_falls_back_to_last_step():
+    ladder = _ladder("Picked Up", "On the Way")
+    assert _extract_ladder_label(ladder, 9) == "On the Way"
+    assert _extract_ladder_label(ladder, None) == "On the Way"
+    # a bool is an int in Python; it must not be read as an index
+    assert _extract_ladder_label(ladder, True) == "On the Way"
+
+
+def test_ladder_prefers_step_status_when_the_index_is_unusable():
+    ladder = _ladder("Picked Up", "On the Way", "Delivered")
+    ladder[1]["stepStatus"] = "current"
+    assert _extract_ladder_label(ladder, None) == "On the Way"
+
+
+def test_ladder_skips_a_blank_label_at_the_index():
+    ladder = _ladder("Picked Up", "", "Delivered")
+    assert _extract_ladder_label(ladder, 1) == "Delivered"
+
+
+def test_carrier_datetime_reads_a_naive_stamp_as_indian_local_time():
+    assert _carrier_datetime("2026-09-24T12:24:52.002000").isoformat() == (
+        "2026-09-24T12:24:52.002000+05:30"
+    )
+
+
+def test_carrier_datetime_keeps_an_explicit_offset_and_rejects_junk():
+    assert _carrier_datetime("2026-09-24T12:24:52+00:00").utcoffset().total_seconds() == 0
+    assert _carrier_datetime("not a date") is None
+    assert _carrier_datetime(None) is None
+    assert _carrier_datetime("") is None
+
+
+def test_delivered_at_comes_from_status_datetime():
+    """Every real parcel left scanDateTime empty; status.statusDateTime is it."""
+    raw = {
+        "status": {"statusDateTime": "2026-09-24T12:24:52.002000"},
+        "trackingStates": [
+            {
+                "label": "Delivered",
+                "scans": [{"scan": "Delivered", "scanDateTime": "", "scanDate": ""}],
+            }
+        ],
+    }
+    assert _last_scan_timestamp(raw) == "2026-09-24T12:24:52.002000+05:30"
+
+
+def test_delivered_at_falls_back_to_a_scan_when_status_has_no_stamp():
+    raw = {
+        "status": {"statusDateTime": ""},
+        "trackingStates": [
+            {
+                "label": "Delivered",
+                "scans": [{"scan": "Delivered", "scanDateTime": "2026-09-24T09:00:00"}],
+            }
+        ],
+    }
+    assert _last_scan_timestamp(raw) is not None
+
+
+def test_delivered_at_is_none_when_nothing_parses():
+    assert _last_scan_timestamp({"status": None, "trackingStates": None}) is None
+
+
+def test_closed_is_a_problem_not_unknown():
+    """hqStatus 'Closed' rode alongside deliveryPillLabel 'Cancelled'."""
+    assert map_parcel_status("Closed") == ParcelStatus.PROBLEM
+
+
+def test_ladder_labels_map_as_the_wire_spells_them():
+    assert map_parcel_status("On the Way") == ParcelStatus.IN_TRANSIT
+    assert map_parcel_status("Out for Delivery") == ParcelStatus.OUT_FOR_DELIVERY
+    assert map_parcel_status("Returned") == ParcelStatus.RETURNING
+    assert map_parcel_status("Cancelled") == ParcelStatus.PROBLEM
+    assert map_parcel_status("Lost") == ParcelStatus.PROBLEM
+
+
+def test_confirmed_statuses_are_silent(caplog):
+    """A wire-confirmed value no longer self-reports on every occurrence."""
+    for value in ("Delivered", "RTO", "DTO", "LOST", "Closed"):
+        map_parcel_status(value)
+    assert "Delhivery reported status" not in caplog.text

@@ -89,6 +89,13 @@ DELHIVERY_TRACKING_URL = "https://www.delhivery.com/track-v2/package/{awb}"
 # first-payload WARNING so there is exactly one list to keep current. Older
 # placeholder guesses that never got a first-party name are kept rather than
 # removed — over-redaction is cheap.
+# ``status.statusDateTime`` arrives without an offset. Delhivery is an Indian
+# domestic carrier and every captured parcel reported ``isInternational:
+# False``; read as IST the stamp agrees with the carrier's own Morning /
+# Afternoon / Evening label on ten of eleven captured parcels, read as UTC on
+# two, so the naive value is Indian local time.
+CARRIER_TIMEZONE = "Asia/Kolkata"
+
 DIAGNOSTICS_REDACT_KEYS = {
     # canonical fields we publish ourselves
     "barcode",
@@ -113,6 +120,10 @@ DIAGNOSTICS_REDACT_KEYS = {
     "ucid_consignee",
     "referenceNo",
     "cityLocation",  # nested inside each trackingStates[].scans[] entry
+    "scannedLocation",  # the facility that scanned it, beside cityLocation
+    "addressInfo",  # whole block: recipient city/state/pincode
+    "dropUAID",  # carries a delivery-executive handle after the facility code
+    "pickupUAID",
     "price_detail",
     "orderAmount",
     "paymentTerms",
