@@ -141,14 +141,15 @@ def test_status_map_ladder_and_hqstatus_do_not_collide():
     assert map_parcel_status("delivered") == ParcelStatus.UNKNOWN
 
 
-def test_mapped_status_warns_on_every_occurrence_not_once(caplog):
+def test_mapped_status_warns_once_per_status(caplog):
     """Distinct from the unmapped-value one-shot warning: a value no real
-    parcel has carried yet self-reports every time it is mapped (mirrors
-    ha-nova-post's `_warn_uncertain_status`, generalised to the whole map)."""
+    parcel has carried yet self-reports once per status, not on every poll."""
     map_parcel_status("Manifested")
     map_parcel_status("Manifested")
     map_parcel_status("Manifested")
-    assert caplog.text.count("mapped to 'registered'") == 3
+    assert caplog.text.count("mapped to 'registered'") == 1
+    map_parcel_status("In Transit")
+    assert caplog.text.count("mapped to 'in_transit'") == 1
 
 
 def test_uncertain_status_warning_names_the_raw_value_and_mapping(caplog):

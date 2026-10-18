@@ -18,7 +18,7 @@ narrowed to what is actually still unknown: guard every access, never assume
 a key set inside a field whose *shape* (as opposed to *name*) is unconfirmed,
 and make every guess announce itself — either once via :func:`_warn_once`
 (an unmapped status, an unexpected key, an unparseable date, a malformed
-shape) or on **every** occurrence via :func:`_warn_uncertain_status` (a
+shape) or once per status via :func:`_warn_uncertain_status` (a
 *mapped* status — the map itself is still first-party-names-only, not
 wire-confirmed) — so the first real capture corrects it instead of passing
 silently.
@@ -355,13 +355,17 @@ _UNCERTAIN_STATUSES = frozenset(_STATUS_MAP) - _CONFIRMED_STATUSES
 
 
 def _warn_uncertain_status(raw_status: str) -> None:
-    """Warn on *every* occurrence of a mapped-but-unconfirmed status.
+    """Warn once per session per mapped-but-unconfirmed status.
 
-    Unlike :func:`_warn_once`'s per-session dedup, every occurrence
-    self-reports — the mapping is first-party field *names*, not a
-    wire-confirmed vocabulary, so a mapped hit is still a guess until a real
-    capture proves it right.
+    The mapping is first-party field *names*, not a wire-confirmed
+    vocabulary, so a mapped hit is still a guess until a real capture proves
+    it right. Deduped per status: an in-flight parcel would otherwise log on
+    every poll.
     """
+    key = f"uncertain_status:{raw_status}"
+    if key in _warned:
+        return
+    _warned.add(key)
     _LOGGER.warning(
         "Delhivery reported status %r, mapped to '%s' — but neither "
         "vocabulary has ever been observed on the wire (only the field "

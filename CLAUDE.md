@@ -95,8 +95,9 @@ reach — an in-flight parcel, a pickup point, weight:
 - **`_STATUS_MAP` carries both vocabularies plus the upper-case spelling
   `status.status` uses.** Eleven entries are listed in
   `_CONFIRMED_STATUSES` and are silent; the rest still self-report via
-  `_warn_uncertain_status` — **on every occurrence, not just once** — because
-  no parcel has reached them. This mirrors `ha-nova-post`'s pattern,
+  `_warn_uncertain_status` — **once per status per session**, since an
+  in-flight parcel would otherwise log on every poll — because no parcel has
+  reached them. This mirrors `ha-nova-post`'s pattern,
   generalised to the whole map. Distinct from the ordinary one-shot "totally
   unmapped value" warning, which stays for anything outside the map.
   **Do not case-fold before lookup**: `LOST`/`RTO`/`DTO` are upper case among
@@ -151,8 +152,7 @@ reach — an in-flight parcel, a pickup point, weight:
   (against the now much larger `_KNOWN_TOP_LEVEL_KEYS`), a malformed
   `trackingStates`/`hqStatus`/`scans` shape, an unparseable
   `PromiseDeliveryDate`, and — once, ever — the full first populated
-  `data[]` entry (redacted). All funnel through `parcels._warn_once`, except
-  `_warn_uncertain_status` which is deliberately **not** deduped. **Do not
+  `data[]` entry (redacted). All funnel through `parcels._warn_once`, and `_warn_uncertain_status` dedupes per status. **Do not
   quiet any of them without replacing the guess they guard with a real
   answer.**
 - **`DIAGNOSTICS_REDACT_KEYS` in `const.py` was re-checked leaf by leaf
