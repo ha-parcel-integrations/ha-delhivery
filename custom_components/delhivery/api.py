@@ -16,6 +16,7 @@ the HTTP status or the body's ``statusCode``. A populated ``data[]`` entry has
 never actually been observed, so its internal shape is unconfirmed; see
 ``parcels.py`` for how that is handled.
 """
+
 from __future__ import annotations
 
 import logging

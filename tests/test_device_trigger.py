@@ -1,4 +1,5 @@
 """Tests for Delhivery device triggers."""
+
 from custom_components.delhivery.const import DOMAIN
 from custom_components.delhivery.device_trigger import (
     TRIGGER_EVENTS,

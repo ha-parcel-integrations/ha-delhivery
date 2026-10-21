@@ -1,9 +1,8 @@
 """Tests for Delhivery diagnostics."""
+
 from unittest.mock import MagicMock
 
-from custom_components.delhivery.diagnostics import (
-    async_get_config_entry_diagnostics,
-)
+from custom_components.delhivery.diagnostics import async_get_config_entry_diagnostics
 
 
 async def test_diagnostics_redacts_and_counts(hass):
@@ -104,9 +103,7 @@ async def test_diagnostics_redacts_first_party_delhivery_fields(hass):
     assert raw["orderAmount"] == "**REDACTED**"
     assert raw["paymentTerms"] == "**REDACTED**"
     # cityLocation is nested inside trackingStates[].scans[] — still caught
-    assert (
-        raw["trackingStates"][0]["scans"][0]["cityLocation"] == "**REDACTED**"
-    )
+    assert raw["trackingStates"][0]["scans"][0]["cityLocation"] == "**REDACTED**"
     # non-identifying nested fields survive
     assert raw["trackingStates"][0]["label"] == "IN TRANSIT"
     assert raw["trackingStates"][0]["scans"][0]["scanNslRemark"] == "In transit"

@@ -1,14 +1,12 @@
 """Tests for the Delhivery API client."""
+
 import json
 from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
 import pytest
 
-from custom_components.delhivery.api import (
-    DelhiveryApiClient,
-    DelhiveryApiError,
-)
+from custom_components.delhivery.api import DelhiveryApiClient, DelhiveryApiError
 from custom_components.delhivery.const import DELHIVERY_ORIGIN, DELHIVERY_REFERER
 
 CODE = "1234567890123"

@@ -23,10 +23,11 @@ shape) or once per status via :func:`_warn_uncertain_status` (a
 wire-confirmed) — so the first real capture corrects it instead of passing
 silently.
 """
+
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 import logging
-from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -75,7 +76,8 @@ def _warn_once(key: str, message: str, *args: Any) -> None:
         return
     _warned.add(key)
     _LOGGER.warning(
-        message + "\n  Please report it — open an issue with this line: %s",
+        message  # noqa: G003 - message is itself the format string
+        + "\n  Please report it — open an issue with this line: %s",
         *args,
         NEW_ISSUE_URL,
     )
@@ -427,8 +429,10 @@ def _extract_ladder_label(
     if isinstance(current_index, int) and not isinstance(current_index, bool):
         if 0 <= current_index < len(labels) and labels[current_index]:
             return labels[current_index]
-    return current_label or last_finished_label or next(
-        (label for label in reversed(labels) if label), None
+    return (
+        current_label
+        or last_finished_label
+        or next((label for label in reversed(labels) if label), None)
     )
 
 
@@ -486,11 +490,11 @@ def parse_iso(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(str(value))
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed
 
 
@@ -504,7 +508,7 @@ def _carrier_datetime(value: Any) -> datetime | None:
     if not value:
         return None
     try:
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(str(value))
     except (TypeError, ValueError):
         return None
     if parsed.tzinfo is None:
@@ -524,7 +528,7 @@ def to_iso_timestamp(value: Any) -> str | None:
         return None
     if isinstance(value, (int, float)):
         try:
-            return datetime.fromtimestamp(value / 1000, tz=timezone.utc).isoformat()
+            return datetime.fromtimestamp(value / 1000, tz=UTC).isoformat()
         except (OverflowError, OSError, ValueError):
             return None
     return str(value)
@@ -710,7 +714,9 @@ def normalize_parcel(raw: dict, *, awb: str, include_history: bool = False) -> d
         "url": DELHIVERY_TRACKING_URL.format(awb=awb),
         "weight": None,
         "dimensions": None,
-        "history": build_history(raw.get("trackingStates")) if include_history else None,
+        "history": build_history(raw.get("trackingStates"))
+        if include_history
+        else None,
         "raw": raw,
     }
 
@@ -746,14 +752,12 @@ def apply_delivered_filter(parcels: list[dict], entry: ConfigEntry) -> list[dict
     shows.
     """
     options = entry.options
-    filter_type = options.get(
-        CONF_DELIVERED_FILTER_TYPE, DEFAULT_DELIVERED_FILTER_TYPE
-    )
+    filter_type = options.get(CONF_DELIVERED_FILTER_TYPE, DEFAULT_DELIVERED_FILTER_TYPE)
     amount = int(
         options.get(CONF_DELIVERED_FILTER_AMOUNT, DEFAULT_DELIVERED_FILTER_AMOUNT)
     )
     if filter_type == "days":
-        cutoff = datetime.now(timezone.utc) - timedelta(days=amount)
+        cutoff = datetime.now(UTC) - timedelta(days=amount)
         return [
             parcel
             for parcel in parcels

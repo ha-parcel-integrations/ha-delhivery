@@ -1,4 +1,5 @@
 """Tests for the Delhivery refresh button."""
+
 from unittest.mock import AsyncMock, MagicMock
 
 from custom_components.delhivery.button import DelhiveryRefreshButton

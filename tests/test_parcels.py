@@ -8,12 +8,12 @@ on the wire (see the module docstring in ``parcels.py``), so every payload
 used here is **synthetic, not captured** — see ``tests/payloads.py``'s module
 docstring.
 """
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-import custom_components.delhivery.parcels as parcels_module
 from custom_components.delhivery.const import (
     CAPABILITIES,
     CONF_DELIVERED_FILTER_AMOUNT,
@@ -22,6 +22,7 @@ from custom_components.delhivery.const import (
     KNOWN_CAPABILITIES,
     ParcelStatus,
 )
+import custom_components.delhivery.parcels as parcels_module
 from custom_components.delhivery.parcels import (
     _carrier_datetime,
     _extract_ladder_label,
@@ -60,6 +61,7 @@ def _reset_one_shot_warnings():
     parcels_module._warned.clear()
     yield
     parcels_module._warned.clear()
+
 
 # ---------------------------------------------------------------------------
 # map_parcel_status — 16 first-party-named values; 15 still "uncertain",
@@ -112,7 +114,7 @@ def test_unmapped_status_warns_only_once(caplog):
 
 
 @pytest.mark.parametrize(
-    "raw_status, expected", {**_HQ_STATUS_MAP, **_LADDER_STATUS_MAP}.items()
+    ("raw_status", "expected"), {**_HQ_STATUS_MAP, **_LADDER_STATUS_MAP}.items()
 )
 def test_map_parcel_status_covers_all_16_known_values(raw_status, expected):
     assert map_parcel_status(raw_status) == expected
@@ -527,7 +529,7 @@ def test_describe_structure_handles_empty_and_deep_values():
 
 def test_parse_iso_handles_z_naive_and_garbage():
     assert parse_iso("2026-04-29T13:12:42Z").tzinfo is not None
-    assert parse_iso("2026-04-29T13:12:42").tzinfo == timezone.utc
+    assert parse_iso("2026-04-29T13:12:42").tzinfo == UTC
     assert parse_iso("not-a-date") is None
     assert parse_iso(None) is None
 
@@ -566,7 +568,9 @@ CANONICAL_KEYS = [
 
 def test_normalize_publishes_exactly_the_canonical_keys():
     """The aggregator and cross-carrier dashboards depend on this key set."""
-    assert list(normalize_parcel(delivered_sample(), awb=DELIVERED_CODE)) == CANONICAL_KEYS
+    assert (
+        list(normalize_parcel(delivered_sample(), awb=DELIVERED_CODE)) == CANONICAL_KEYS
+    )
 
 
 def test_normalize_barcode_is_the_requested_awb_never_the_payload():
@@ -684,17 +688,16 @@ def test_normalize_sender_receiver_absent_is_none():
 
 def test_normalize_url_always_populated_from_the_confirmed_template():
     parcel = normalize_parcel({"hqStatus": "In Transit"}, awb="9999999999999")
-    assert (
-        parcel["url"]
-        == "https://www.delhivery.com/track-v2/package/9999999999999"
-    )
+    assert parcel["url"] == "https://www.delhivery.com/track-v2/package/9999999999999"
 
 
 def test_normalize_still_unconfirmed_fields_are_always_none():
     """pickup/pickup_point/weight/dimensions stay None — out of scope for
     this pass per tracking.md (weight is bucketed to an icon; no field found
     for the rest)."""
-    parcel = normalize_parcel(delivered_sample(), awb=DELIVERED_CODE, include_history=True)
+    parcel = normalize_parcel(
+        delivered_sample(), awb=DELIVERED_CODE, include_history=True
+    )
     assert parcel["pickup"] is False
     assert parcel["pickup_point"] is None
     assert parcel["weight"] is None
@@ -709,7 +712,7 @@ def test_capabilities_are_known_values():
 def test_capabilities_match_the_unconfirmed_field_gap():
     """CAPABILITIES must agree with test_normalize_still_unconfirmed_fields_are_always_none
     and test_normalize_promise_date_field_is_capital_p / test_normalize_history_uses_trackingstates_when_opted_in."""
-    assert CAPABILITIES == {"delivery_window", "url", "history"}
+    assert {"delivery_window", "url", "history"} == CAPABILITIES
 
 
 def test_normalize_keeps_raw_payload():
@@ -740,7 +743,7 @@ def test_normalize_known_keys_never_warn_as_unexpected(caplog):
 def test_normalize_full_known_key_inventory_never_warns(caplog):
     """Every field name tracking.md's "order object" table lists — the full
     first-party inventory — must be silent, even though most stay unused."""
-    raw = {key: None for key in parcels_module._KNOWN_TOP_LEVEL_KEYS}
+    raw = dict.fromkeys(parcels_module._KNOWN_TOP_LEVEL_KEYS)
     raw["hqStatus"] = "In Transit"
     normalize_parcel(raw, awb=ACTIVE_CODE)
     assert "field we do not map yet" not in caplog.text
@@ -839,7 +842,7 @@ def _entry(filter_type: str, amount: int) -> MockConfigEntry:
 
 
 def _delivered_pair() -> list[dict]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return [
         {"barcode": "RECENT", "delivered_at": (now - timedelta(days=1)).isoformat()},
         {"barcode": "OLD", "delivered_at": (now - timedelta(days=30)).isoformat()},
@@ -904,7 +907,9 @@ def test_carrier_datetime_reads_a_naive_stamp_as_indian_local_time():
 
 
 def test_carrier_datetime_keeps_an_explicit_offset_and_rejects_junk():
-    assert _carrier_datetime("2026-09-24T12:24:52+00:00").utcoffset().total_seconds() == 0
+    assert (
+        _carrier_datetime("2026-09-24T12:24:52+00:00").utcoffset().total_seconds() == 0
+    )
     assert _carrier_datetime("not a date") is None
     assert _carrier_datetime(None) is None
     assert _carrier_datetime("") is None

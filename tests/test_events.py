@@ -6,6 +6,7 @@ driving it directly with hand-built parcel dicts, independent of
 ``parcels.py``'s status mapping (covered separately by ``test_parcels.py``
 and ``test_coordinator.py``'s hqStatus-driven transition tests).
 """
+
 from unittest.mock import AsyncMock
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -15,9 +16,7 @@ from custom_components.delhivery.coordinator import DelhiveryCoordinator
 
 
 def _coordinator(hass) -> DelhiveryCoordinator:
-    entry = MockConfigEntry(
-        domain=DOMAIN, unique_id=DOMAIN, options={CONF_PARCELS: []}
-    )
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=DOMAIN, options={CONF_PARCELS: []})
     entry.add_to_hass(hass)
     return DelhiveryCoordinator(hass, AsyncMock(), entry)
 
@@ -132,7 +131,11 @@ async def test_new_eta_fires_delivery_time_changed(hass):
     events = _listen(hass, "parcel_delivery_time_changed")
 
     coordinator._fire_change_events(
-        [_parcel(planned_from="2026-05-01T10:00:00Z", planned_to="2026-05-01T12:00:00Z")]
+        [
+            _parcel(
+                planned_from="2026-05-01T10:00:00Z", planned_to="2026-05-01T12:00:00Z"
+            )
+        ]
     )
     await hass.async_block_till_done()
 

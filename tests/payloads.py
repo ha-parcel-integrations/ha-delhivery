@@ -16,6 +16,7 @@ invented for test coverage only — it proves the code does not crash and
 degrades gracefully on *a* plausible shape for statuses other than LOST, not
 that it is *the* real shape.
 """
+
 from __future__ import annotations
 
 ACTIVE_CODE = "1234567890123"
