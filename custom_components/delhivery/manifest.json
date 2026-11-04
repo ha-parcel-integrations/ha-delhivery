@@ -1,6 +1,7 @@
 {
   "domain": "delhivery",
   "name": "Delhivery",
+  "categories": ["productivity_information"],
   "codeowners": [
     "@peter-mdf"
   ],
