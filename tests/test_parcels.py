@@ -25,8 +25,8 @@ from custom_components.delhivery.const import (
 import custom_components.delhivery.parcels as parcels_module
 from custom_components.delhivery.parcels import (
     _carrier_datetime,
+    _delivery_timestamp,
     _extract_ladder_label,
-    _last_scan_timestamp,
     apply_delivered_filter,
     build_history,
     describe_structure,
@@ -625,7 +625,7 @@ def test_normalize_promise_date_field_is_capital_p():
     raw = {"hqStatus": "In Transit", "PromiseDeliveryDate": "2026-04-29T15:00:00Z"}
     parcel = normalize_parcel(raw, awb=ACTIVE_CODE)
     assert parcel["planned_from"] == "2026-04-29T15:00:00Z"
-    assert parcel["planned_to"] is None
+    assert parcel["planned_to"] == "2026-04-29T23:59:59+05:30"
 
 
 def test_normalize_lowercase_promise_date_key_is_ignored():
@@ -926,7 +926,7 @@ def test_delivered_at_comes_from_status_datetime():
             }
         ],
     }
-    assert _last_scan_timestamp(raw) == "2026-09-24T12:24:52.002000+05:30"
+    assert _delivery_timestamp(raw) == "2026-09-24T12:24:52.002000+05:30"
 
 
 def test_delivered_at_falls_back_to_a_scan_when_status_has_no_stamp():
@@ -939,11 +939,28 @@ def test_delivered_at_falls_back_to_a_scan_when_status_has_no_stamp():
             }
         ],
     }
-    assert _last_scan_timestamp(raw) is not None
+    assert _delivery_timestamp(raw) == "2026-09-24T09:00:00"
+
+
+def test_delivered_at_ignores_a_newer_scan_of_another_step():
+    raw = {
+        "status": {"statusDateTime": ""},
+        "trackingStates": [
+            {
+                "label": "Delivered",
+                "scans": [{"scanDateTime": "2026-09-24T09:00:00"}],
+            },
+            {
+                "label": "Returned",
+                "scans": [{"scanDateTime": "2026-09-25T09:00:00"}],
+            },
+        ],
+    }
+    assert _delivery_timestamp(raw) == "2026-09-24T09:00:00"
 
 
 def test_delivered_at_is_none_when_nothing_parses():
-    assert _last_scan_timestamp({"status": None, "trackingStates": None}) is None
+    assert _delivery_timestamp({"status": None, "trackingStates": None}) is None
 
 
 def test_closed_is_a_problem_not_unknown():

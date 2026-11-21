@@ -26,7 +26,8 @@ silently.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from collections.abc import Iterable
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 import logging
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -614,20 +615,15 @@ def build_history(
     return ordered[-max_events:]
 
 
-def _last_scan_timestamp(raw: dict) -> str | None:
-    """Return the parcel's most recent parseable timestamp, or ``None``.
+def _delivery_timestamp(raw: dict) -> str | None:
+    """Return when the parcel was delivered, or ``None``.
 
-    Used for ``delivered_at``, independent of the ``include_history``
-    opt-in — a delivered parcel's completion time is worth resolving even
-    when the fuller per-event history stays switched off. An unparseable-only
-    result yields ``None`` rather than an unreliable value; it is never
-    guessed from an unparseable entry.
-
-    ``status.statusDateTime`` is preferred because it is the only timestamp
-    this endpoint has ever been seen to populate: across every real parcel
-    captured so far each ``scans[]`` entry carried ``scanDateTime`` and
-    ``scanDate`` as empty strings, which would otherwise leave every
-    delivered parcel without a delivery time and so unsortable.
+    Resolved independent of the ``include_history`` opt-in, so the delivered
+    list can sort and the retention filter can drop it. ``status.statusDateTime``
+    is the time of the current (delivered) status and the only timestamp this
+    endpoint has been seen to populate: every real ``scans[]`` entry carried
+    ``scanDateTime`` and ``scanDate`` as empty strings. Failing that, the newest
+    scan of a step that maps to delivered; never the newest scan of any step.
     """
     status = raw.get("status")
     if isinstance(status, dict):
@@ -635,9 +631,112 @@ def _last_scan_timestamp(raw: dict) -> str | None:
         if stamped is not None:
             return stamped.isoformat()
     parseable, _unparseable = _collect_scan_entries(raw.get("trackingStates"))
-    if not parseable:
+    for _, entry in reversed(parseable):
+        if entry["status"] is ParcelStatus.DELIVERED:
+            return entry["timestamp"]
+    return None
+
+
+def _moment(value: Any, zone: tzinfo) -> tuple[datetime, bool, str] | None:
+    """Return ``(aware datetime, date_only, text)`` for a carrier time, or ``None``.
+
+    A naive time or a bare date gets ``zone``; an aware time keeps its offset
+    and, when it came in as a string, its own spelling.
+    """
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        moment = datetime.combine(value, time.min, tzinfo=zone)
+        return moment, True, moment.isoformat()
+    elif isinstance(value, str) and value:
+        try:
+            if len(value) == 10:
+                moment = datetime.combine(
+                    date.fromisoformat(value), time.min, tzinfo=zone
+                )
+                return moment, True, moment.isoformat()
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+        if parsed.tzinfo:
+            return parsed, False, value
+    else:
         return None
-    return parseable[-1][1]["timestamp"]
+    moment = parsed if parsed.tzinfo else parsed.replace(tzinfo=zone)
+    return moment, False, moment.isoformat()
+
+
+def _end_of_day(moment: datetime, zone: tzinfo) -> datetime:
+    local = moment.astimezone(zone)
+    return datetime.combine(local.date(), time(23, 59, 59), tzinfo=zone)
+
+
+def planned_window(
+    start: Any, end: Any, *, zone: tzinfo
+) -> tuple[str | None, str | None]:
+    """Return ``(planned_from, planned_to)`` in the canonical window shape.
+
+    ``start`` and ``end`` are ISO strings, dates or datetimes, or ``None``; an
+    epoch number must be converted first (see ``to_iso_timestamp``). A window
+    keeps both ends. One moment with a time ends at ``23:59:59`` the same local
+    day; a date covers ``00:00:00`` to ``23:59:59``; two dates run from the
+    first day's start to the last day's end. Equal values are one moment,
+    reversed values are swapped, and ``planned_to`` is never set without
+    ``planned_from``. ``zone`` is the carrier's own zone: it dates naive times
+    and bare dates and decides which day a moment ends on, so a ``Z`` moment
+    still ends on the carrier's local day. When nothing is left of that day
+    after the moment, there is no ``planned_to``.
+    """
+    first = _moment(start, zone)
+    last = _moment(end, zone)
+    if first is None:
+        first, last = last, None
+    if first is None:
+        return None, None
+
+    def closing(moment: tuple[datetime, bool, str]) -> datetime:
+        return _end_of_day(moment[0], zone) if moment[1] else moment[0]
+
+    if last is not None and closing(last) < first[0]:
+        first, last = last, first
+    if last is not None and closing(last) == first[0]:
+        last = None
+
+    if last is None:
+        end_of_day = _end_of_day(first[0], zone)
+        return first[2], end_of_day.isoformat() if end_of_day > first[0] else None
+    return first[2], closing(last).isoformat() if last[1] else last[2]
+
+
+_NO_WINDOW_STATUSES = frozenset(
+    {ParcelStatus.AT_PICKUP_POINT, ParcelStatus.RETURNING, ParcelStatus.DELIVERED}
+)
+
+
+def planned_for_status(
+    status: ParcelStatus, planned_from: str | None, planned_to: str | None
+) -> tuple[str | None, str | None]:
+    """Empty the delivery window once the parcel is at its destination or done."""
+    if status in _NO_WINDOW_STATUSES:
+        return None, None
+    return planned_from, planned_to
+
+
+def is_pickup(
+    route_flag: bool | None,
+    status: ParcelStatus,
+    event_statuses: Iterable[ParcelStatus | None] = (),
+) -> bool:
+    """Whether the delivery route ends at a pickup point.
+
+    The carrier's own route flag wins; otherwise the parcel having reached
+    ``AT_PICKUP_POINT`` at any point counts, so the value survives collection.
+    """
+    if route_flag:
+        return True
+    return status is ParcelStatus.AT_PICKUP_POINT or any(
+        event is ParcelStatus.AT_PICKUP_POINT for event in event_statuses
+    )
 
 
 def normalize_parcel(raw: dict, *, awb: str, include_history: bool = False) -> dict:
@@ -661,24 +760,24 @@ def normalize_parcel(raw: dict, *, awb: str, include_history: bool = False) -> d
       Both vocabularies are mapped (see ``_STATUS_MAP``), but every mapped
       hit still self-reports as unconfirmed via
       :func:`_warn_uncertain_status`.
-    * ``planned_from`` comes from ``PromiseDeliveryDate`` (capital P — a
-      separate, lower-confidence ``deliveryDate`` key exists too but is not
-      used here pending stronger evidence); whether it is a point estimate
-      or a window has never been confirmed, so ``planned_to`` always stays
-      ``None``.
+    * ``planned_from``/``planned_to`` come from ``PromiseDeliveryDate`` (capital
+      P — a separate, lower-confidence ``deliveryDate`` key exists too but is
+      not used here pending stronger evidence), shaped by
+      :func:`planned_window` in the carrier's own zone and emptied by
+      :func:`planned_for_status`. Whether the field is a date or a moment has
+      never been seen populated; the shape table covers both.
     * ``url`` is always the confirmed tracking-page template
       (``const.DELHIVERY_TRACKING_URL``) formatted with the AWB — the one
       high-confidence field in this whole mapping, confirmed verbatim in the
       research.
     * ``history`` comes from ``trackingStates[].scans[]`` — see
       :func:`build_history`.
-    * ``delivered_at`` is the most recent parseable timestamp
-      (see :func:`_last_scan_timestamp`) once ``delivered`` is ``True``,
+    * ``delivered_at`` is the delivery's own timestamp
+      (see :func:`_delivery_timestamp`) once ``delivered`` is ``True``,
       resolved regardless of ``include_history`` — otherwise ``None``.
-    * every other canonical field (``pickup``, ``pickup_point``, ``weight``,
-      ``dimensions``) is ``None`` — not seen in any field name so far, or
-      (``weight``) too low-confidence to use (bucketed to an icon, may not
-      be a number).
+    * ``pickup`` is a constant ``False`` and ``pickup_point`` ``None``: no
+      field or status points at a pickup point. ``weight`` and ``dimensions``
+      are ``None`` (``weight`` is bucketed to an icon, may not be a number).
     """
     if raw:
         _warn_unexpected_keys(raw)
@@ -687,16 +786,20 @@ def normalize_parcel(raw: dict, *, awb: str, include_history: bool = False) -> d
     raw_status = _resolve_raw_status(raw)
     status = map_parcel_status(raw_status)
     delivered = status is ParcelStatus.DELIVERED
-    delivered_at = _last_scan_timestamp(raw) if delivered else None
+    delivered_at = _delivery_timestamp(raw) if delivered else None
 
-    planned_from: str | None = None
+    candidate_from: str | None = None
     promise_date = raw.get("PromiseDeliveryDate")
     if promise_date not in (None, ""):
         candidate = to_iso_timestamp(promise_date)
         if candidate is not None and parse_iso(candidate) is not None:
-            planned_from = candidate
+            candidate_from = candidate
         else:
             _warn_unparseable_promise_date(promise_date)
+
+    planned_from, planned_to = planned_for_status(
+        status, *planned_window(candidate_from, None, zone=_CARRIER_TZ)
+    )
 
     return {
         "carrier": "Delhivery",
@@ -707,8 +810,8 @@ def normalize_parcel(raw: dict, *, awb: str, include_history: bool = False) -> d
         "raw_status": raw_status,
         "delivered": delivered,
         "delivered_at": delivered_at,
-        "planned_from": None if delivered else planned_from,
-        "planned_to": None,
+        "planned_from": planned_from,
+        "planned_to": planned_to,
         "pickup": False,
         "pickup_point": None,
         "url": DELHIVERY_TRACKING_URL.format(awb=awb),

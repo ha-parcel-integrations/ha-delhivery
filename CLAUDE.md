@@ -39,12 +39,13 @@ This repo follows it exactly.
 
 ## Carrier-specific notes
 
-**No `awaiting_pickup` sensor yet — unconfirmed, not structural.** Nothing in
-either documented status ladder corresponds to `at_pickup_point`
-(carrier-research's `delhivery.md`), so `pickup`/`pickup_point` stay
-`False`/`None` in `parcels.py`. That is the best evidence on file, not a
-proof the status can never occur — revisit if carrier-research settles it
-either way. See `.github/CONVENTIONS.md`'s pickup-point convention.
+**No pickup sensors.** Nothing in either documented status ladder or in any
+captured payload shows delivery to a pickup point, locker or shop, so
+`pickup` is a constant `False`, `pickup_point` stays `None`, and neither
+`awaiting_pickup` nor `en_route_to_pickup_point` is exposed. This is the best
+evidence on file, not proof it can never happen: if a real parcel shows a
+pickup-point delivery, add both sensors and map the status to
+`at_pickup_point`.
 
 **API mechanics live in `carrier-research/delhivery/api/` (private research
 repo)** — the endpoint, the fixed Origin/Referer headers, the not-found
@@ -124,8 +125,11 @@ reach — an in-flight parcel, a pickup point, weight:
   cityLocation}`. Each history entry's `raw_status`/`status` comes from its
   *containing step's* `label`, mapped through the same `_STATUS_MAP` — a
   confirmed field name, not an invented per-scan status.
-- **`PromiseDeliveryDate` (capital P) maps to `planned_from` only** — never
-  `planned_to`. No captured parcel has carried it yet. A separate,
+- **`PromiseDeliveryDate` (capital P) maps to the delivery window** through
+  `planned_window` in `Asia/Kolkata` (a moment ends at 23:59:59 that day, a date
+  covers the whole day) and is emptied by `planned_for_status` for delivered,
+  returning and at-pickup-point parcels. Whether the field is a date or a
+  moment has never been seen: no captured parcel has carried it. A separate,
   lower-confidence `deliveryDate` key exists too but is not used pending
   stronger evidence; a single field name is no evidence of a window either
   way.
@@ -136,7 +140,8 @@ reach — an in-flight parcel, a pickup point, weight:
   confirmed verbatim — always populated, the one high-confidence field in
   this whole mapping.
 - **`delivered_at` comes from `status.statusDateTime`**, falling back to the
-  last parseable `scans[]` timestamp (`_last_scan_timestamp`), resolved once
+  newest `scans[]` timestamp of a step that maps to delivered
+  (`_delivery_timestamp`), never the newest scan of any step, resolved once
   `status` maps to `delivered` —
   **independent of the `include_history` opt-in**, since the delivered-list
   sort (`sort_parcels_by_ts`) and the default "days" retention filter
@@ -169,7 +174,7 @@ reach — an in-flight parcel, a pickup point, weight:
   placeholder guesses are kept rather than removed — over-redaction is cheap,
   and a field absent from a finished parcel may still appear on an in-flight
   one (the Dynalogic lesson: nested address blocks are the usual miss).
-- **`weight`, `dimensions`, `pickup`, `pickup_point` stay `None`.** The
+- **`weight`, `dimensions` and `pickup_point` stay `None`, `pickup` stays `False`.** The
   research explicitly flags `weight` (`package_weight`) as low-confidence —
   the app buckets it to an icon, so it may not be a numeric kg value — and
   found nothing for the other three. Do not fill these in without new
@@ -196,7 +201,7 @@ reach — an in-flight parcel, a pickup point, weight:
   `_KNOWN_TOP_LEVEL_KEYS`) and surfaced a real gap worth knowing about
   before touching history/timestamp logic: in that capture, **every
   `scanDateTime`** — both the step-level one and the one inside `scans[]` —
-  was an empty string, so `build_history`/`_last_scan_timestamp` extract
+  was an empty string, so `build_history`/`_delivery_timestamp` extract
   nothing from it, even though a real timestamp exists at the (currently
   unmapped) top-level `status.statusDateTime`. `LOST` is a terminal/edge
   status; whether a normal in-transit/delivered capture behaves the same

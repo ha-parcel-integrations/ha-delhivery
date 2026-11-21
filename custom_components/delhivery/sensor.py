@@ -17,6 +17,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from . import DelhiveryConfigEntry
 from .const import DOMAIN
@@ -212,6 +213,9 @@ class DelhiveryNextDeliverySensor(
                     _LOGGER.debug(
                         "Could not parse delivery moment: %s", parcel["planned_from"]
                     )
+                continue
+            window_end = parse_iso(parcel.get("planned_to")) or moment
+            if window_end < dt_util.now():
                 continue
             result.append((moment, parcel))
         return result
