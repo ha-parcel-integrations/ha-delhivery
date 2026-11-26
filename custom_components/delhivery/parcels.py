@@ -806,6 +806,7 @@ def normalize_parcel(raw: dict, *, awb: str, include_history: bool = False) -> d
         "barcode": awb,
         "sender": raw.get("clientName"),
         "receiver": raw.get("consignee"),
+        "contents": None,
         "status": status,
         "raw_status": raw_status,
         "delivered": delivered,

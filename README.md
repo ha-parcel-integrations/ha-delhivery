@@ -41,6 +41,7 @@ A custom Home Assistant integration that tracks your [Delhivery](https://www.del
 - Summary sensors: incoming parcels, next delivery, recently delivered parcels
 - Read-only **Deliveries** calendar with the expected delivery date, when Delhivery reports one
 - `delhivery.track_parcel` / `delhivery.untrack_parcel` services, so a dashboard button can add a parcel
+- A `contents` field on every parcel, set in your own words with the `delhivery.update_contents` service or the `contents` field of `delhivery.track_parcel`; it titles the calendar event and shows on the next-delivery sensor
 - Events + device triggers for no-code automations (parcel registered, status changed, delivered, delivery time changed)
 - Opt-in per-parcel status history, built from Delhivery's own scan events
 - Manual refresh button and a diagnostic last-update sensor
@@ -158,8 +159,11 @@ Every payload is the full normalised parcel plus the hub's `device_id`. Events a
 
 | Service | Fields | Description |
 |---|---|---|
-| `delhivery.track_parcel` | `tracking_code` | Start tracking a parcel |
+| `delhivery.track_parcel` | `tracking_code`, `contents` (optional) | Start tracking a parcel, optionally noting what is in it |
 | `delhivery.untrack_parcel` | `tracking_code` | Stop tracking a parcel |
+| `delhivery.update_contents` | `tracking_code`, `contents` (optional) | Set, replace or clear (empty text) a note on what is in a parcel, tracked or not |
+
+The `contents` text is stored locally, never sent to Delhivery, and fills the parcel's `contents` field; it titles the parcel's calendar event and shows on the next-delivery sensor. Changing it does not poll Delhivery.
 
 ## Examples
 

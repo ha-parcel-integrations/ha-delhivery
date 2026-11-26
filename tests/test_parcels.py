@@ -550,6 +550,7 @@ CANONICAL_KEYS = [
     "barcode",
     "sender",
     "receiver",
+    "contents",
     "status",
     "raw_status",
     "delivered",
@@ -702,6 +703,10 @@ def test_normalize_still_unconfirmed_fields_are_always_none():
     assert parcel["pickup_point"] is None
     assert parcel["weight"] is None
     assert parcel["dimensions"] is None
+
+
+def test_contents_is_published_empty_by_the_normaliser():
+    assert normalize_parcel(delivered_sample(), awb=DELIVERED_CODE)["contents"] is None
 
 
 def test_capabilities_are_known_values():
